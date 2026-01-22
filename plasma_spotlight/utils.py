@@ -1,8 +1,8 @@
 import urllib.request
 import urllib.error
 import json
-import os
 import logging
+import shutil
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -25,14 +25,25 @@ def fetch_json(url, headers=None):
         logger.error(f"Failed to decode JSON from {url}: {e}")
         return None
 
+def check_url_exists(url):
+    """Check if a URL exists using HTTP HEAD request."""
+    try:
+        req = urllib.request.Request(url, method='HEAD')
+        with urllib.request.urlopen(req) as response:
+            return response.status == 200
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return False
+        logger.warning(f"HTTP error checking URL {url}: {e.code}")
+        return False
+    except Exception as e:
+        logger.warning(f"Error checking URL {url}: {e}")
+        return False
+
 def download_file(url, filepath):
     """Downloads a file from a URL to the specified filepath using urllib."""
     try:
-        ensure_directory(os.path.dirname(filepath))
-        
-        # urllib doesn't stream in the same simple way as requests, 
-        # but shutil.copyfileobj can stream from the socket.
-        import shutil
+        ensure_directory(str(Path(filepath).parent))
         
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req) as response:
@@ -43,8 +54,9 @@ def download_file(url, filepath):
         return True
     except Exception as e:
         logger.error(f"Failed to download {url}: {e}")
-        if os.path.exists(filepath): # Cleanup partial download
-            os.remove(filepath)
+        filepath_obj = Path(filepath)
+        if filepath_obj.exists():  # Cleanup partial download
+            filepath_obj.unlink()
         return False
 
 def save_metadata(metadata, filepath):

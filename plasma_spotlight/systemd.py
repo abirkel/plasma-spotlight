@@ -1,4 +1,3 @@
-import os
 import sys
 import subprocess
 import logging
@@ -38,7 +37,7 @@ WantedBy=default.target
 """
 
 def generate_timer_content():
-    return f"""[Unit]
+    return """[Unit]
 Description=Daily Timer for Wallpaper Downloader
 
 [Timer]

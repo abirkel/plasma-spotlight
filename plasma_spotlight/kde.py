@@ -1,6 +1,5 @@
 import logging
 import subprocess
-import os
 import shutil
 from pathlib import Path
 
@@ -45,7 +44,7 @@ def update_lockscreen(image_path):
     # Actually, main.py should be responsible for updating the symlink FIRST,
     # then passing the symlink path here if desired.
     
-    if not os.path.exists(target_path):
+    if not target_path.exists():
         logger.error(f"Image not found for lockscreen: {target_path}")
         return False
 
@@ -76,6 +75,7 @@ def setup_sddm_theme():
     logger.info(f"Background directory created at: {USER_BG_DIR}")
     
     # Part 2: System setup (needs sudo)
+    import os
     if os.geteuid() != 0:
         logger.info("SDDM theme installation requires elevated privileges.")
         logger.info("Re-running setup with sudo...")
@@ -102,6 +102,7 @@ def setup_sddm_theme():
 
 def _setup_sddm_as_root():
     """Root-only operations for SDDM theme setup."""
+    import os
     try:
         # Get the actual user (not root)
         actual_user = os.environ.get('SUDO_USER', os.environ.get('USER'))
@@ -197,6 +198,7 @@ def uninstall_sddm_theme():
     Uninstalls the SDDM theme completely.
     Handles sudo elevation automatically.
     """
+    import os
     if os.geteuid() != 0:
         logger.info("SDDM theme uninstall requires elevated privileges.")
         logger.info("Re-running uninstall with sudo...")
@@ -245,7 +247,7 @@ def update_user_background(image_path):
     Updates the symlink at ~/.local/share/plasma-spotlight/current.jpg
     This is user-level, no sudo needed for daily updates!
     """
-    if not os.path.exists(image_path):
+    if not Path(image_path).exists():
         logger.error(f"Image not found: {image_path}")
         return False
     

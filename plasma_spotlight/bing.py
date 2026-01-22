@@ -1,7 +1,7 @@
 import logging
 import datetime
 from pathlib import Path
-from .utils import download_file, save_metadata, fetch_json
+from .utils import download_file, save_metadata, fetch_json, check_url_exists
 
 logger = logging.getLogger(__name__)
 
@@ -56,28 +56,32 @@ class BingDownloader:
                         logger.info(f"Already exists: {filename}")
                         continue
                     
-                    # Download image in desired resolution (no fallback)
+                    # Check if the desired resolution exists before attempting download
+                    if not check_url_exists(image_url):
+                        logger.info(f"{base_name}: {self.config.get('resolution', 'default')} resolution not available - skipping")
+                        continue
+                    
+                    # Download image in desired resolution
                     success = download_file(image_url, str(full_path))
                     
                     if not success:
-                        logger.warning(f"Failed to download {filename} in {self.config.get('resolution', 'default')} resolution - skipping")
+                        logger.error(f"{base_name}: Download failed - skipping")
                         continue
                     
-                    if success:
-                        downloaded_images.append(str(full_path))
-                        total_downloaded += 1
-                        
-                        # Prepare metadata
-                        meta = {
-                            'source': 'Bing',
-                            'date': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            'title': image_data.get('title'),
-                            'copyright': image_data.get('copyright'),
-                            'url': image_url,
-                            'region': region,
-                            'start_date': image_data.get('startdate')
-                        }
-                        save_metadata(meta, str(sidecar_path))
+                    downloaded_images.append(str(full_path))
+                    total_downloaded += 1
+                    
+                    # Prepare metadata
+                    meta = {
+                        'source': 'Bing',
+                        'date': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        'title': image_data.get('title'),
+                        'copyright': image_data.get('copyright'),
+                        'url': image_url,
+                        'region': region,
+                        'start_date': image_data.get('startdate')
+                    }
+                    save_metadata(meta, str(sidecar_path))
             
             except Exception as e:
                 logger.error(f"Error fetching Bing images for region {region}: {e}")
