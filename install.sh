@@ -24,10 +24,35 @@ install_plasma_spotlight() {
         echo "Error: python3 is not installed."
         exit 1
     fi
+    
+    # Check for KDE Plasma 6 (kwriteconfig6 is required)
+    if ! command -v kwriteconfig6 &> /dev/null; then
+        echo "Warning: kwriteconfig6 not found. KDE Plasma 6 may not be installed."
+        echo "This tool requires KDE Plasma 6 for lock screen integration."
+        read -p "Continue anyway? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Installation cancelled."
+            exit 1
+        fi
+    fi
 
     # Ensure directories exist
     mkdir -p "$INSTALL_DIR"
     mkdir -p "$BIN_DIR"
+    
+    # Check if ~/.local/bin is in PATH before installation
+    if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+        echo ""
+        echo "⚠ Warning: $BIN_DIR is not in your PATH."
+        echo "The installation will continue, but you won't be able to run the command until you add it."
+        echo ""
+        echo "Add this line to your ~/.bashrc or ~/.zshrc:"
+        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+        echo ""
+        read -p "Press Enter to continue with installation..."
+        echo ""
+    fi
 
     # Install Logic
     if [ -f "pyproject.toml" ] && [ -d ".git" ]; then
@@ -64,20 +89,18 @@ EOF
     echo "✓ Executable created at: $WRAPPER_PATH"
     echo ""
     
-    # Check if ~/.local/bin is in PATH
-    if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-        echo "⚠ Warning: $BIN_DIR is not in your PATH."
-        echo "Add this line to your ~/.bashrc or ~/.zshrc:"
+    # Check if ~/.local/bin is in PATH (show message only if not already shown)
+    if [[ ":$PATH:" == *":$BIN_DIR:"* ]]; then
+        echo "You can now run:"
+        echo "  $SCRIPT_NAME --help"
+        echo "  $SCRIPT_NAME --setup-sddm-theme"
+        echo "  $SCRIPT_NAME --update-lockscreen --update-sddm"
+    else:
+        echo "⚠ Remember to add $BIN_DIR to your PATH:"
         echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
         echo ""
-        echo "Then run: source ~/.bashrc (or restart your terminal)"
-        echo ""
+        echo "Then restart your terminal or run: source ~/.bashrc"
     fi
-    
-    echo "You can now run:"
-    echo "  $SCRIPT_NAME --help"
-    echo "  $SCRIPT_NAME --setup-sddm-theme"
-    echo "  $SCRIPT_NAME --update-lockscreen --update-sddm"
     echo "--------------------------------------------------"
 }
 
