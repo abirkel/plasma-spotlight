@@ -72,6 +72,23 @@ Edit `~/.config/plasma-spotlight/config.json` to customize behavior:
 }
 ```
 
+### Logging
+
+Control log verbosity with the `PLASMA_SPOTLIGHT_LOG_LEVEL` environment variable:
+
+```bash
+# Default: INFO
+plasma-spotlight --update-lockscreen
+
+# Debug mode (verbose)
+PLASMA_SPOTLIGHT_LOG_LEVEL=DEBUG plasma-spotlight --update-lockscreen
+
+# Quiet mode (errors only)
+PLASMA_SPOTLIGHT_LOG_LEVEL=ERROR plasma-spotlight --update-lockscreen
+```
+
+Valid levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+
 ## Usage
 
 ### Manual Run

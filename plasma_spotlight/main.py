@@ -1,12 +1,23 @@
 import argparse
 import logging
+import os
 from .config import load_config
 from .bing import BingDownloader
 from .spotlight import SpotlightDownloader
 from .kde import update_lockscreen, setup_sddm_theme, update_user_background, uninstall_sddm_theme, USER_BG_SYMLINK
 from .systemd import install_timer, uninstall_timer, enable_timer, disable_timer
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+def setup_logging():
+    """Configure logging with environment variable support for log level."""
+    log_level = os.environ.get('PLASMA_SPOTLIGHT_LOG_LEVEL', 'INFO').upper()
+    numeric_level = getattr(logging, log_level, logging.INFO)
+    
+    logging.basicConfig(
+        level=numeric_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
 logger = logging.getLogger(__name__)
 
 def main() -> int:
@@ -18,6 +29,8 @@ def main() -> int:
     Returns:
         int: Exit code (0 for success, 1 for failure)
     """
+    setup_logging()
+    
     parser = argparse.ArgumentParser(description="Daily Wallpaper Downloader for KDE Plasma (Fedora)")
     parser.add_argument("--config", help="Path to configuration file")
     parser.add_argument("--download-only", action="store_true", help="Only download images, do not update wallpaper")
