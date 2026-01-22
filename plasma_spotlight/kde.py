@@ -100,10 +100,13 @@ def setup_sddm_theme() -> bool:
         logger.info("SDDM theme installation requires elevated privileges.")
         logger.info("Re-running setup with sudo...")
 
-        # Re-execute with sudo using absolute path to this module
-        import sys
+        # Re-execute with sudo using the installed entry point script
+        script_path = shutil.which("plasma-spotlight")
+        if not script_path:
+            logger.error("Could not find plasma-spotlight in PATH")
+            return False
 
-        cmd = ["sudo", sys.executable, "-m", "plasma_spotlight", "--setup-sddm-theme"]
+        cmd = ["sudo", script_path, "--install-sddm"]
 
         try:
             subprocess.run(cmd, check=True)
@@ -295,15 +298,13 @@ def uninstall_sddm_theme() -> bool:
         logger.info("SDDM theme uninstall requires elevated privileges.")
         logger.info("Re-running uninstall with sudo...")
 
-        import sys
+        # Re-execute with sudo using the installed entry point script
+        script_path = shutil.which("plasma-spotlight")
+        if not script_path:
+            logger.error("Could not find plasma-spotlight in PATH")
+            return False
 
-        cmd = [
-            "sudo",
-            sys.executable,
-            "-m",
-            "plasma_spotlight",
-            "--uninstall-sddm-theme",
-        ]
+        cmd = ["sudo", script_path, "--uninstall-sddm"]
 
         try:
             result = subprocess.run(cmd, check=False)

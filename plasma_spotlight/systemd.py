@@ -11,8 +11,14 @@ SYSTEMD_USER_DIR = Path.home() / ".config/systemd/user"
 
 
 def generate_service_content():
-    """Generate systemd service content using python -m invocation."""
-    python_exec = sys.executable
+    """Generate systemd service content using the installed entry point script."""
+    import shutil
+    
+    script_path = shutil.which("plasma-spotlight")
+    if not script_path:
+        logger.warning("Could not find plasma-spotlight in PATH, falling back to python -m")
+        script_path = f"{sys.executable} -m plasma_spotlight"
+    
     return f"""[Unit]
 Description=Daily Wallpaper Downloader (Spotlight/Bing)
 After=network-online.target
@@ -20,7 +26,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart={python_exec} -m plasma_spotlight --update-lockscreen --update-sddm
+ExecStart={script_path} --update-lockscreen --update-sddm
 StandardOutput=journal
 StandardError=journal
 

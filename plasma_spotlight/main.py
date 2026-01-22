@@ -50,12 +50,12 @@ def main() -> int:
         help="Only download images, do not update wallpaper",
     )
     parser.add_argument(
-        "--setup-sddm-theme",
+        "--install-sddm",
         action="store_true",
-        help="Setup the custom SDDM theme in /usr/local",
+        help="Install the custom SDDM theme",
     )
     parser.add_argument(
-        "--uninstall-sddm-theme",
+        "--uninstall-sddm",
         action="store_true",
         help="Uninstall the custom SDDM theme",
     )
@@ -112,12 +112,12 @@ def main() -> int:
     if args.spotlight_batch:
         effective_config["spotlight_batch_count"] = args.spotlight_batch
 
-    if args.setup_sddm_theme:
-        logger.info("Setting up SDDM Theme structure...")
+    if args.install_sddm:
+        logger.info("Installing SDDM theme...")
         return 0 if setup_sddm_theme() else 1
 
-    if args.uninstall_sddm_theme:
-        logger.info("Uninstalling SDDM Theme...")
+    if args.uninstall_sddm:
+        logger.info("Uninstalling SDDM theme...")
         return 0 if uninstall_sddm_theme() else 1
 
     if args.install_timer:
