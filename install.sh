@@ -89,12 +89,26 @@ EOF
     echo "✓ Executable created at: $WRAPPER_PATH"
     echo ""
 
+    # Run internal installation (SDDM + systemd timer)
+    echo "Setting up SDDM theme and systemd timer..."
+    if "$WRAPPER_PATH" --_internal-install; then
+        echo ""
+        echo "✓ SDDM theme and systemd timer installed successfully!"
+        echo "✓ The systemd timer is enabled and will run daily at midnight."
+        echo "✓ You can disable it with: $SCRIPT_NAME --disable-timer"
+        echo "✓ You can enable it again with: $SCRIPT_NAME --enable-timer"
+    else
+        echo ""
+        echo "⚠ Warning: Failed to install SDDM theme or systemd timer."
+        echo "You can try running manually: $SCRIPT_NAME --_internal-install"
+    fi
+    echo ""
+
     # Check if ~/.local/bin is in PATH (show message only if not already shown)
     if [[ ":$PATH:" == *":$BIN_DIR:"* ]]; then
         echo "You can now run:"
-        echo "  $SCRIPT_NAME --help"
-        echo "  $SCRIPT_NAME --setup-sddm-theme"
-        echo "  $SCRIPT_NAME --update-lockscreen --update-sddm"
+        echo "  $SCRIPT_NAME          # Download and update wallpapers"
+        echo "  $SCRIPT_NAME --help   # Show all options"
     else
         echo "⚠ Remember to add $BIN_DIR to your PATH:"
         echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""

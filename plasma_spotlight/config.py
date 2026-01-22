@@ -15,8 +15,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "spotlight_locale": "en-US",
     "spotlight_batch_count": 1,  # 1-4
     "download_sources": "both",  # "bing", "spotlight", or "both"
-    "update_lockscreen": False,
-    "update_sddm": False,
 }
 
 
@@ -60,12 +58,6 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
         if res not in ["UHD", "1920x1080", "1366x768"]:
             logger.warning(f"Invalid resolution: {res}. Using default: 'UHD'")
             config["resolution"] = "UHD"
-
-    # Validate boolean flags
-    for key in ["update_lockscreen", "update_sddm"]:
-        if key in config and not isinstance(config[key], bool):
-            logger.warning(f"Invalid {key}: {config[key]}. Using default: False")
-            config[key] = False
 
     # Validate paths exist or can be created
     for path_key in ["save_path_spotlight", "save_path_bing"]:

@@ -16,14 +16,10 @@ uninstall_plasma_spotlight() {
 
     echo "Uninstalling Plasma Spotlight..."
 
-    # Step 1: Uninstall SDDM theme (if installed)
+    # Step 1: Uninstall SDDM theme and systemd timer (if installed)
     if [ -x "$WRAPPER_PATH" ]; then
-        echo "Removing SDDM theme integration..."
-        "$WRAPPER_PATH" --uninstall-sddm-theme || echo "Note: SDDM theme may not have been installed"
-
-        echo "Removing systemd timer..."
-        "$WRAPPER_PATH" --disable-timer 2>/dev/null || true
-        "$WRAPPER_PATH" --uninstall-timer 2>/dev/null || true
+        echo "Removing SDDM theme and systemd timer..."
+        "$WRAPPER_PATH" --_internal-uninstall || echo "Note: SDDM theme or timer may not have been installed"
     fi
 
     # Step 2: Remove installation directory

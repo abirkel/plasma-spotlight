@@ -6,9 +6,9 @@ from .bing import BingDownloader
 from .spotlight import SpotlightDownloader
 from .kde import (
     update_lockscreen,
-    setup_sddm_theme,
+    internal_install,
+    internal_uninstall,
     update_user_background,
-    uninstall_sddm_theme,
     USER_BG_SYMLINK,
 )
 from .systemd import install_timer, uninstall_timer, enable_timer, disable_timer
@@ -43,55 +43,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Daily Wallpaper Downloader for KDE Plasma (Fedora)"
     )
-    parser.add_argument("--config", help="Path to configuration file")
     parser.add_argument(
         "--download-only",
         action="store_true",
         help="Only download images, do not update wallpaper",
     )
+    
+    # Internal arguments (hidden from help)
     parser.add_argument(
-        "--install-sddm",
+        "--_internal-install",
         action="store_true",
-        help="Install the custom SDDM theme",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
-        "--uninstall-sddm",
+        "--_internal-uninstall",
         action="store_true",
-        help="Uninstall the custom SDDM theme",
-    )
-    parser.add_argument(
-        "--update-sddm", action="store_true", help="Update the SDDM wallpaper symlink"
-    )
-    parser.add_argument(
-        "--update-lockscreen",
-        action="store_true",
-        help="Update the KDE lock screen wallpaper",
+        help=argparse.SUPPRESS,
     )
 
-    # Download source selection
-    parser.add_argument(
-        "--sources",
-        choices=["bing", "spotlight", "both"],
-        help="Which sources to download from",
-    )
-    parser.add_argument(
-        "--spotlight-batch",
-        type=int,
-        choices=[1, 2, 3, 4],
-        help="Number of Spotlight images to request (1-4)",
-    )
-
-    # Systemd Args
-    parser.add_argument(
-        "--install-timer",
-        action="store_true",
-        help="Install systemd user service and timer",
-    )
-    parser.add_argument(
-        "--uninstall-timer",
-        action="store_true",
-        help="Uninstall systemd user service and timer",
-    )
+    # Systemd timer control
     parser.add_argument(
         "--enable-timer", action="store_true", help="Enable and start the systemd timer"
     )
@@ -103,26 +73,18 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    config = load_config(args.config)
+    config = load_config()
 
-    # Create effective config by merging CLI args (without mutating original config)
+    # Use config values directly
     effective_config = config.copy()
-    if args.sources:
-        effective_config["download_sources"] = args.sources
-    if args.spotlight_batch:
-        effective_config["spotlight_batch_count"] = args.spotlight_batch
 
-    if args.install_sddm:
-        logger.info("Installing SDDM theme...")
-        return 0 if setup_sddm_theme() else 1
+    if args._internal_install:
+        logger.info("Installing SDDM theme and systemd timer...")
+        return 0 if internal_install() else 1
 
-    if args.uninstall_sddm:
-        logger.info("Uninstalling SDDM theme...")
-        return 0 if uninstall_sddm_theme() else 1
-
-    if args.install_timer:
-        logger.info("Installing systemd timer...")
-        return 0 if install_timer() else 1
+    if args._internal_uninstall:
+        logger.info("Uninstalling SDDM theme and systemd timer...")
+        return 0 if internal_uninstall() else 1
 
     if args.enable_timer:
         logger.info("Enabling systemd timer...")
@@ -131,10 +93,6 @@ def main() -> int:
     if args.disable_timer:
         logger.info("Disabling systemd timer...")
         return 0 if disable_timer() else 1
-
-    if args.uninstall_timer:
-        logger.info("Uninstalling systemd timer...")
-        return 0 if uninstall_timer() else 1
 
     # Downloaders
     download_sources = effective_config.get("download_sources", "both")
@@ -175,34 +133,18 @@ def main() -> int:
         latest_image = downloaded_bing[0]
 
     if latest_image:
-        # Check config or args for update actions
-        # CLI flags override config if present (but action=store_true means they are False by default)
-        # So we want (arg OR config) is True
-
-        do_update_lockscreen = args.update_lockscreen or effective_config.get(
-            "update_lockscreen", False
-        )
-        do_update_sddm = args.update_sddm or effective_config.get("update_sddm", False)
-
-        if do_update_lockscreen or do_update_sddm:
-            # Always update the user symlink first if any update is requested
-            logger.info(f"Updating user background symlink to: {latest_image}")
-            if update_user_background(latest_image):
-                if do_update_lockscreen:
-                    logger.info("Updating Lock Screen configuration...")
-                    if not update_lockscreen(USER_BG_SYMLINK):
-                        logger.error("Failed to update lock screen")
-
-                if do_update_sddm:
-                    logger.info("SDDM background updated via common symlink.")
-            else:
-                logger.error(
-                    "Failed to update user background symlink. Aborting system updates."
-                )
+        logger.info(f"Updating wallpapers to: {latest_image}")
+        if update_user_background(latest_image):
+            logger.info("Updating lock screen configuration...")
+            if not update_lockscreen(USER_BG_SYMLINK):
+                logger.error("Failed to update lock screen")
                 return 1
-
+            logger.info("Wallpapers updated successfully (lock screen + SDDM)")
+        else:
+            logger.error("Failed to update wallpapers")
+            return 1
     else:
-        logger.info("No new images downloaded or found to update system.")
+        logger.info("No new images downloaded.")
 
     return 0
 

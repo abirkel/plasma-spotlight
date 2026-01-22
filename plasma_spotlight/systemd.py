@@ -26,7 +26,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart={script_path} --update-lockscreen --update-sddm
+ExecStart={script_path}
 StandardOutput=journal
 StandardError=journal
 

@@ -79,10 +79,10 @@ def update_lockscreen(image_path: str) -> bool:
     return run_command(cmd)
 
 
-def setup_sddm_theme() -> bool:
-    """Sets up SDDM theme for Fedora Atomic.
-
-    Creates user-writable background directory and system SDDM theme.
+def internal_install() -> bool:
+    """Internal installation function called by install.sh.
+    
+    Sets up SDDM theme, installs and enables systemd timer.
     Handles sudo elevation automatically when needed.
 
     Returns:
@@ -106,11 +106,27 @@ def setup_sddm_theme() -> bool:
             logger.error("Could not find plasma-spotlight in PATH")
             return False
 
-        cmd = ["sudo", script_path, "--install-sddm"]
+        cmd = ["sudo", script_path, "--_internal-install"]
 
         try:
             subprocess.run(cmd, check=True)
             logger.info("SDDM theme setup complete!")
+            
+            # Install and enable systemd timer (as user)
+            from .systemd import install_timer, enable_timer
+            
+            logger.info("Installing systemd timer...")
+            if not install_timer():
+                logger.error("Failed to install systemd timer")
+                return False
+            
+            logger.info("Enabling systemd timer...")
+            if not enable_timer():
+                logger.error("Failed to enable systemd timer")
+                return False
+            
+            logger.info("Installation complete!")
+            logger.info("The systemd timer is enabled and will run daily.")
             logger.info("The theme will be active on the next login screen.")
             return True
         except subprocess.CalledProcessError:
@@ -125,12 +141,13 @@ def _setup_sddm_as_root() -> bool:
     """Root-only operations for SDDM theme setup.
 
     Creates theme directory, copies breeze theme, configures SDDM,
-    and sets SELinux context.
+    initializes current.jpg from breeze background, and sets SELinux context.
 
     Returns:
         bool: True if successful, False otherwise
     """
     import os
+    import configparser
 
     try:
         # Get the actual user (not root)
@@ -154,7 +171,7 @@ def _setup_sddm_as_root() -> bool:
         else:
             logger.warning("Breeze theme not found. Creating minimal theme...")
 
-        # 3. Create theme.conf pointing to user's background
+        # 3. Determine user's background path
         if actual_user and actual_user != "root":
             import pwd
 
@@ -163,6 +180,26 @@ def _setup_sddm_as_root() -> bool:
         else:
             bg_path = USER_BG_DIR / "current.jpg"
 
+        # 4. Initialize current.jpg from breeze background
+        if breeze_theme.exists():
+            theme_conf = SDDM_THEME_DIR / "theme.conf"
+            if theme_conf.exists():
+                try:
+                    config = configparser.ConfigParser()
+                    config.read(theme_conf)
+                    
+                    if config.has_option('General', 'background'):
+                        breeze_bg_path = config.get('General', 'background')
+                        breeze_bg = Path(breeze_bg_path)
+                        
+                        if breeze_bg.exists() and not bg_path.exists():
+                            # Copy breeze background as initial current.jpg
+                            shutil.copy2(breeze_bg, bg_path)
+                            logger.info(f"Initialized current.jpg from breeze background: {breeze_bg}")
+                except Exception as e:
+                    logger.warning(f"Could not initialize current.jpg from breeze background: {e}")
+
+        # 5. Create theme.conf pointing to user's background
         theme_conf = SDDM_THEME_DIR / "theme.conf"
 
         with open(theme_conf, "w") as f:
@@ -172,7 +209,7 @@ def _setup_sddm_as_root() -> bool:
 
         logger.info(f"Theme configuration created: {theme_conf}")
 
-        # 4. Create SDDM config to use our theme
+        # 6. Create SDDM config to use our theme
         SDDM_CONF.parent.mkdir(parents=True, exist_ok=True)
 
         with open(SDDM_CONF, "w") as f:
@@ -186,7 +223,7 @@ def _setup_sddm_as_root() -> bool:
 
         logger.info(f"SDDM configuration created: {SDDM_CONF}")
 
-        # Set SELinux context while we're still root
+        # 7. Set SELinux context while we're still root
         _set_selinux_context_as_root(actual_user)
 
         logger.info("SDDM theme installed successfully!")
@@ -283,10 +320,10 @@ def _set_selinux_context() -> None:
         logger.debug("SELinux tools not found, skipping context setup")
 
 
-def uninstall_sddm_theme() -> bool:
-    """Uninstalls the SDDM theme completely.
-
-    Removes system SDDM files and user background directory.
+def internal_uninstall() -> bool:
+    """Internal uninstallation function called by uninstall.sh.
+    
+    Uninstalls SDDM theme, disables and uninstalls systemd timer.
     Handles sudo elevation automatically when needed.
 
     Returns:
@@ -304,7 +341,7 @@ def uninstall_sddm_theme() -> bool:
             logger.error("Could not find plasma-spotlight in PATH")
             return False
 
-        cmd = ["sudo", script_path, "--uninstall-sddm"]
+        cmd = ["sudo", script_path, "--_internal-uninstall"]
 
         try:
             result = subprocess.run(cmd, check=False)
@@ -312,15 +349,28 @@ def uninstall_sddm_theme() -> bool:
                 logger.error("Failed to uninstall SDDM theme via sudo")
                 return False
 
-            # Clean up user directory (as user)
-            if USER_BG_DIR.exists():
-                logger.info(f"Removing user background directory: {USER_BG_DIR}")
-                shutil.rmtree(USER_BG_DIR)
+            # Disable and uninstall systemd timer (as user)
+            from .systemd import disable_timer, uninstall_timer
+            
+            logger.info("Disabling systemd timer...")
+            disable_timer()  # Don't fail if already disabled
+            
+            logger.info("Uninstalling systemd timer...")
+            if not uninstall_timer():
+                logger.warning("Failed to uninstall systemd timer")
 
-            logger.info("SDDM theme uninstalled successfully!")
+            # Clean up user symlink only (as user)
+            if USER_BG_SYMLINK.exists() or USER_BG_SYMLINK.is_symlink():
+                logger.info(f"Removing user background symlink: {USER_BG_SYMLINK}")
+                try:
+                    USER_BG_SYMLINK.unlink()
+                except FileNotFoundError:
+                    pass  # Already gone
+
+            logger.info("Uninstallation complete!")
             return True
         except Exception as e:
-            logger.error(f"Failed to uninstall SDDM theme: {e}")
+            logger.error(f"Failed to uninstall: {e}")
             return False
 
     # We're root - do the uninstall
