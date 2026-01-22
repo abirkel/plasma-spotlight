@@ -19,16 +19,6 @@ class BingDownloader:
         processed_base_names = set()
         total_downloaded = 0
 
-        # Scan existing files to populate processed_base_names for deduplication
-        for existing_file in self.save_path.glob("*.jpg"):
-            try:
-                # Extract base name from existing filename
-                source_id = existing_file.stem.replace("_UHD", "")
-                base_name = source_id.split('_')[0]
-                processed_base_names.add(base_name)
-            except Exception as e:
-                logger.warning(f"Could not parse existing file {existing_file.name}: {e}")
-
         for region in self.regions:
             logger.info(f"Checking region: {region}")
             try:
