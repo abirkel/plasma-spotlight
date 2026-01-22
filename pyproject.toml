@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plasma-spotlight"
+version = "0.1.0"
+description = "Automated daily wallpaper downloader from Windows Spotlight and Bing for KDE Plasma lock screen and SDDM login background"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+keywords = ["kde", "plasma", "wallpaper", "spotlight", "bing", "lockscreen", "sddm", "fedora"]
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/plasma-spotlight"
+Repository = "https://github.com/yourusername/plasma-spotlight"
+Issues = "https://github.com/yourusername/plasma-spotlight/issues"
+
+[project.scripts]
+plasma-spotlight = "plasma_spotlight.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["plasma_spotlight*"]
