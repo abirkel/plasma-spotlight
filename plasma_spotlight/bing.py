@@ -16,7 +16,6 @@ class BingDownloader:
     def run(self):
         logger.info(f"Running Bing Downloader for regions: {self.regions}")
         downloaded_images = []
-        processed_base_names = set()
         total_downloaded = 0
 
         for region in self.regions:
@@ -34,15 +33,9 @@ class BingDownloader:
                 for image_data in images:
                     urlbase = image_data.get('urlbase')
                     
-                    # Extract base name for deduplication
+                    # Extract clean image name (remove OHR. prefix and region/ID suffix)
                     source_id = urlbase.split('id=')[-1]
-                    base_name = source_id.split('_')[0]
-                    
-                    # Deduplication check using base name
-                    if base_name in processed_base_names:
-                        logger.info(f"Skipping duplicate: {base_name} from {region}")
-                        continue
-                    processed_base_names.add(base_name)
+                    base_name = source_id.split('_')[0].replace('OHR.', '')
 
                     # Build image URL based on resolution
                     if self.config.get('resolution') == 'UHD':
@@ -50,11 +43,11 @@ class BingDownloader:
                     else:
                          image_url = self.base_url + image_data.get('url')
 
-                    # Filename logic: Keep source filename from URL
+                    # Filename logic: Clean name with resolution
                     if self.config.get('resolution') == 'UHD':
-                        filename = f"{source_id}_UHD.jpg"
+                        filename = f"{base_name}_UHD.jpg"
                     else:
-                        filename = f"{source_id}.jpg"
+                        filename = f"{base_name}.jpg"
                     
                     full_path = self.save_path / filename
                     sidecar_path = self.save_path / f"{Path(filename).stem}.txt"
