@@ -21,7 +21,7 @@ Get fresh, high-quality wallpapers every day without lifting a finger. Windows S
 
 **Install and run:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yourusername/plasma-spotlight/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/abirkel/plasma-spotlight/main/install.sh | bash
 plasma-spotlight --update-lockscreen --update-sddm
 ```
 
@@ -42,7 +42,7 @@ That's it. Fresh wallpapers every day.
 
 ### Automated
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yourusername/plasma-spotlight/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/abirkel/plasma-spotlight/main/install.sh | bash
 ```
 
 ### SDDM Login Screen (Optional)
@@ -122,7 +122,7 @@ The SDDM theme lives in `/var/lib/sddm` (one-time sudo setup), but daily updates
 ## Uninstall
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yourusername/plasma-spotlight/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/abirkel/plasma-spotlight/main/uninstall.sh | bash
 ```
 
 ## Acknowledgments

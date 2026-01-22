@@ -9,7 +9,7 @@ install_plasma_spotlight() {
     # Configuration
     INSTALL_DIR="$HOME/.local/share/plasma-spotlight"
     BIN_DIR="$HOME/.local/bin"
-    REPO_URL="https://github.com/yourusername/plasma-spotlight.git" # IMPORTANT: Update before release!
+    REPO_URL="https://github.com/abirkel/plasma-spotlight.git"
     SCRIPT_NAME="plasma-spotlight"
 
     echo "Installing Plasma Spotlight..."
