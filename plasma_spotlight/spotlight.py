@@ -77,12 +77,9 @@ class SpotlightDownloader:
                         logger.warning("No landscape image found in item")
                         continue
                         
-                    # Filename logic
+                    # Filename logic with 5-level fallback
                     raw_filename = img_url.split('/')[-1]
-                    if "desktop-" in raw_filename:
-                        filename = raw_filename[raw_filename.find("desktop-"):]
-                    else:
-                        filename = raw_filename
+                    filename = self._get_clean_filename(img_url, ad, raw_filename)
                         
                     full_path = self.save_path / filename
                     sidecar_path = self.save_path / f"{Path(filename).stem}.txt"
@@ -99,22 +96,25 @@ class SpotlightDownloader:
                     
                     success = download_file(img_url, str(full_path))
                     
-                    if success:
-                        downloaded_images.append(str(full_path))
-                        total_downloaded += 1
-                        
-                        # Prepare metadata
-                        meta = {
-                            'source': 'Spotlight',
-                            'date': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            'location_subject': location_subject,
-                            'title': title,
-                            'description': desc,
-                            'copyright': copyright,
-                            'url': img_url,
-                            'interactive_hotspots': str([h.get('label') for h in ad.get('relatedHotspots', []) if h.get('label')]),
-                        }
-                        save_metadata(meta, str(sidecar_path))
+                    if not success:
+                        logger.error(f"{filename}: Download failed - skipping")
+                        continue
+                    
+                    downloaded_images.append(str(full_path))
+                    total_downloaded += 1
+                    
+                    # Prepare metadata
+                    meta = {
+                        'source': 'Spotlight',
+                        'date': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        'location_subject': location_subject,
+                        'title': title,
+                        'description': desc,
+                        'copyright': copyright,
+                        'url': img_url,
+                        'interactive_hotspots': str([h.get('label') for h in ad.get('relatedHotspots', []) if h.get('label')]),
+                    }
+                    save_metadata(meta, str(sidecar_path))
                         
                 except Exception as e:
                     logger.error(f"Error processing spotlight item: {e}")
@@ -128,3 +128,113 @@ class SpotlightDownloader:
             logger.info(f"Downloaded {total_downloaded} new Spotlight image(s)")
             
         return downloaded_images
+    
+    def _get_clean_filename(self, img_url, ad, raw_filename):
+        """
+        Extract clean filename with 5-level fallback strategy.
+        
+        Level 1: spotlightid from ctaUri (best)
+        Level 2: Extract from original filename (good)
+        Level 3: Trim to desktop-... (acceptable)
+        Level 4: Use title field (fallback for non-desktop files)
+        Level 5: Keep vanilla name (last resort)
+        
+        Returns: filename string
+        """
+        import re
+        
+        # Extract resolution from URL
+        resolution = img_url.split('_')[-1].replace('.jpg', '')  # e.g., "3840x2160"
+        
+        # Level 1: Try spotlightid from ctaUri
+        cta_uri = ad.get('ctaUri', '')
+        if 'spotlightid=' in cta_uri:
+            try:
+                spotlight_id = cta_uri.split('spotlightid=')[1].split('&')[0]
+                
+                # Strip prefix if pattern matches: SHORT_ProperName
+                if '_' in spotlight_id:
+                    parts = spotlight_id.split('_', 1)
+                    prefix, name = parts[0], parts[1]
+                    
+                    # Strip if prefix is short and name starts with capital
+                    if len(prefix) <= 4 and name and name[0].isupper():
+                        clean_name = name
+                    else:
+                        clean_name = spotlight_id
+                else:
+                    clean_name = spotlight_id
+                
+                filename = f"{clean_name}_{resolution}.jpg"
+                return filename
+            except Exception:
+                pass
+        
+        # Level 2: Try extracting from original filename
+        if 'desktop-' in raw_filename:
+            try:
+                # Find start of name
+                if '_ds_' in raw_filename:
+                    start_idx = raw_filename.find('_ds_') + 4
+                else:
+                    start_idx = raw_filename.find('_', raw_filename.find('desktop-')) + 1
+                
+                name_part = raw_filename[start_idx:]
+                
+                # First pass: Known sources (fast path)
+                known_sources = [
+                    'gettyimages', 'shutterstock', 'adobestock', 'estockphoto',
+                    'alamy', 'pocstock', 'designpics', 'superstock', 'age-'
+                ]
+                
+                end_idx = len(name_part)
+                found_source = False
+                
+                for source in known_sources:
+                    pos = name_part.find(f'_{source}')
+                    if pos != -1 and pos < end_idx:
+                        end_idx = pos
+                        found_source = True
+                        break
+                
+                # Second pass: Pattern fallback for unknown sources
+                if not found_source:
+                    pattern = r'_[a-z][a-z-]*[-_]\d'
+                    match = re.search(pattern, name_part)
+                    
+                    if match:
+                        end_idx = match.start()
+                        # Log new source detection
+                        new_source = name_part[end_idx+1:].split('-')[0].split('_')[0]
+                        logger.info(f"New image source detected: '{new_source}' - consider adding to known_sources list")
+                
+                # Extract clean name
+                if end_idx > 0 and end_idx < len(name_part):
+                    clean_name = name_part[:end_idx]
+                    filename = f"{clean_name}_{resolution}.jpg"
+                    logger.debug(f"Filename level 2 (extracted): {filename}")
+                    return filename
+            except Exception:
+                pass
+            
+            # Level 3: Trim to desktop-...
+            filename = raw_filename[raw_filename.find("desktop-"):]
+            logger.debug(f"Filename level 3 (desktop trim): {filename}")
+            return filename
+        
+        # Level 4: Use title field (for non-desktop files)
+        title = ad.get('title', '')
+        if title:
+            try:
+                # Sanitize title: remove special chars, spaces, keep alphanumeric
+                safe_title = re.sub(r'[^a-zA-Z0-9]', '', title)
+                if safe_title:
+                    filename = f"{safe_title}_{resolution}.jpg"
+                    logger.debug(f"Filename level 4 (title): {filename}")
+                    return filename
+            except Exception:
+                pass
+        
+        # Level 5: Keep vanilla name
+        logger.debug(f"Filename level 5 (vanilla): {raw_filename}")
+        return raw_filename

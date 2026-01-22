@@ -56,12 +56,12 @@ class BingDownloader:
                         logger.info(f"Already exists: {filename}")
                         continue
                     
-                    # Try downloading UHD, fallback to HD if fails
+                    # Download image in desired resolution (no fallback)
                     success = download_file(image_url, str(full_path))
-                    if not success and self.config.get('resolution') == 'UHD':
-                        logger.warning(f"UHD failed for {filename}, trying HD...")
-                        image_url = self.base_url + image_data.get('url')
-                        success = download_file(image_url, str(full_path))
+                    
+                    if not success:
+                        logger.warning(f"Failed to download {filename} in {self.config.get('resolution', 'default')} resolution - skipping")
+                        continue
                     
                     if success:
                         downloaded_images.append(str(full_path))
