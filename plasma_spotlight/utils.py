@@ -72,7 +72,7 @@ def save_metadata(metadata, filepath):
         metadata_dir = filepath_obj.parent / "metadata"
         ensure_directory(str(metadata_dir))
         
-        metadata_filepath = metadata_dir / filepath_obj.name
+        metadata_filepath = metadata_dir / f"{filepath_obj.stem}.txt"
         
         with open(metadata_filepath, "w") as f:
             source = metadata.get("source", "Unknown Source").upper()
