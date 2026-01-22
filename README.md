@@ -59,18 +59,28 @@ Edit `~/.config/plasma-spotlight/config.json` to customize behavior:
 
 ```json
 {
-  "save_path_bing": "~/Pictures/Wallpapers/Bing",
-  "save_path_spotlight": "~/Pictures/Wallpapers/Spotlight",
-  "bing_regions": ["en-US", "ja-JP", "intl"],
+  "save_path_bing": "/home/username/Pictures/Wallpapers/Bing",
+  "save_path_spotlight": "/home/username/Pictures/Wallpapers/Spotlight",
+  "bing_regions": ["en-US", "intl"],
   "resolution": "UHD",
   "spotlight_country": "US",
   "spotlight_locale": "en-US",
-  "spotlight_batch_count": 4,
+  "spotlight_batch_count": 1,
   "download_sources": "both",
+  "preferred_source": "spotlight",
   "update_lockscreen": false,
   "update_sddm": false
 }
 ```
+
+**Note**: Replace `/home/username` with your actual home directory path, or omit the path settings to use defaults (`~/Pictures/Wallpapers/`).
+
+**Options**:
+- `bing_regions`: List of Bing market codes (e.g., `["en-US", "ja-JP", "en-GB", "intl"]`)
+- `resolution`: Image quality - `"UHD"` (3840x2160), `"1920x1080"`, or `"1366x768"`
+- `spotlight_batch_count`: Number of Spotlight images to fetch per run (1-4)
+- `download_sources`: `"both"`, `"bing"`, or `"spotlight"`
+- `preferred_source`: Which source to prefer for wallpaper selection - `"spotlight"` or `"bing"`
 
 ### Logging
 
@@ -115,7 +125,7 @@ The timer runs daily and automatically updates your wallpapers. Check status wit
 1. **Downloads**: Fetches images from Spotlight/Bing APIs to `~/Pictures/Wallpapers/`
 2. **Symlinks**: Updates `~/.local/share/plasma-spotlight/current.jpg` (no sudo needed)
 3. **Integrates**: Updates KDE lock screen config and SDDM theme points to symlink
-4. **Metadata**: Saves image details as `.txt` sidecars for reference
+4. **Metadata**: Saves image details (title, copyright, location) in `metadata/` subfolders for reference
 
 The SDDM theme lives in `/var/lib/sddm` (one-time sudo setup), but daily updates only touch the user-writable symlink—perfect for Atomic systems.
 

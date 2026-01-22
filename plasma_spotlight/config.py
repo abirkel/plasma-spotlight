@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_CONFIG: Dict[str, Any] = {
     "save_path_spotlight": str(Path.home() / "Pictures/Wallpapers/Spotlight"),
     "save_path_bing": str(Path.home() / "Pictures/Wallpapers/Bing"),
-    "bing_regions": ["en-US", "ja-JP", "intl"],
+    "bing_regions": ["ja-JP", "en-US", "en-GB", "intl"],
     "resolution": "UHD",
     "preferred_source": "spotlight",  # or "bing"
     "spotlight_country": "US",

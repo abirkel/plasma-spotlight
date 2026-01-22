@@ -53,7 +53,7 @@ class BingDownloader:
                         filename = f"{base_name}.jpg"
 
                     full_path = self.save_path / filename
-                    sidecar_path = self.save_path / f"{Path(filename).stem}.txt"
+                    metadata_path = self.save_path / "metadata" / f"{Path(filename).stem}.txt"
 
                     if full_path.exists():
                         logger.info(f"Already exists: {filename}")
@@ -86,7 +86,7 @@ class BingDownloader:
                         "region": region,
                         "start_date": image_data.get("startdate"),
                     }
-                    save_metadata(meta, str(sidecar_path))
+                    save_metadata(meta, str(metadata_path))
 
             except Exception as e:
                 logger.error(f"Error fetching Bing images for region {region}: {e}")

@@ -87,7 +87,7 @@ class SpotlightDownloader:
                     filename = self._get_clean_filename(img_url, ad, raw_filename)
 
                     full_path = self.save_path / filename
-                    sidecar_path = self.save_path / f"{Path(filename).stem}.txt"
+                    metadata_path = self.save_path / "metadata" / f"{Path(filename).stem}.txt"
 
                     if full_path.exists():
                         logger.info(f"Already exists: {filename}")
@@ -125,7 +125,7 @@ class SpotlightDownloader:
                             ]
                         ),
                     }
-                    save_metadata(meta, str(sidecar_path))
+                    save_metadata(meta, str(metadata_path))
 
                 except Exception as e:
                     logger.error(f"Error processing spotlight item: {e}")
