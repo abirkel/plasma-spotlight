@@ -4,29 +4,29 @@
 # Safe for curl | bash usage
 
 install_plasma_spotlight() {
-    set -e  # Exit on any error
+    set -e # Exit on any error
 
     # Configuration
     INSTALL_DIR="$HOME/.local/share/plasma-spotlight"
     BIN_DIR="$HOME/.local/bin"
-    REPO_URL="https://github.com/yourusername/plasma-spotlight.git"  # IMPORTANT: Update before release!
+    REPO_URL="https://github.com/yourusername/plasma-spotlight.git" # IMPORTANT: Update before release!
     SCRIPT_NAME="plasma-spotlight"
 
     echo "Installing Plasma Spotlight..."
 
     # Prerequisites check
-    if ! command -v git &> /dev/null; then
+    if ! command -v git &>/dev/null; then
         echo "Error: git is not installed."
         exit 1
     fi
 
-    if ! command -v python3 &> /dev/null; then
+    if ! command -v python3 &>/dev/null; then
         echo "Error: python3 is not installed."
         exit 1
     fi
-    
+
     # Check for KDE Plasma 6 (kwriteconfig6 is required)
-    if ! command -v kwriteconfig6 &> /dev/null; then
+    if ! command -v kwriteconfig6 &>/dev/null; then
         echo "Warning: kwriteconfig6 not found. KDE Plasma 6 may not be installed."
         echo "This tool requires KDE Plasma 6 for lock screen integration."
         read -p "Continue anyway? [y/N] " -n 1 -r
@@ -40,7 +40,7 @@ install_plasma_spotlight() {
     # Ensure directories exist
     mkdir -p "$INSTALL_DIR"
     mkdir -p "$BIN_DIR"
-    
+
     # Check if ~/.local/bin is in PATH before installation
     if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
         echo ""
@@ -50,14 +50,14 @@ install_plasma_spotlight() {
         echo "Add this line to your ~/.bashrc or ~/.zshrc:"
         echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
         echo ""
-        read -p "Press Enter to continue with installation..."
+        read -r -p "Press Enter to continue with installation..."
         echo ""
     fi
 
     # Install Logic
     if [ -f "pyproject.toml" ] && [ -d ".git" ]; then
         echo "Detected local repository. Syncing files..."
-        if command -v rsync &> /dev/null; then
+        if command -v rsync &>/dev/null; then
             rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' ./ "$INSTALL_DIR/"
         else
             cp -r . "$INSTALL_DIR/"
@@ -76,7 +76,7 @@ install_plasma_spotlight() {
     # Create executable wrapper
     WRAPPER_PATH="$BIN_DIR/$SCRIPT_NAME"
 
-    cat <<EOF > "$WRAPPER_PATH"
+    cat <<EOF >"$WRAPPER_PATH"
 #!/bin/bash
 export PYTHONPATH="$INSTALL_DIR:\$PYTHONPATH"
 exec python3 -m plasma_spotlight "\$@"
@@ -88,14 +88,14 @@ EOF
     echo "✓ Success! Installed to: $INSTALL_DIR"
     echo "✓ Executable created at: $WRAPPER_PATH"
     echo ""
-    
+
     # Check if ~/.local/bin is in PATH (show message only if not already shown)
     if [[ ":$PATH:" == *":$BIN_DIR:"* ]]; then
         echo "You can now run:"
         echo "  $SCRIPT_NAME --help"
         echo "  $SCRIPT_NAME --setup-sddm-theme"
         echo "  $SCRIPT_NAME --update-lockscreen --update-sddm"
-    else:
+    else
         echo "⚠ Remember to add $BIN_DIR to your PATH:"
         echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
         echo ""

@@ -4,7 +4,7 @@
 # Safe for curl | bash usage
 
 uninstall_plasma_spotlight() {
-    set -e  # Exit on any error
+    set -e # Exit on any error
 
     # Configuration
     INSTALL_DIR="$HOME/.local/share/plasma-spotlight"
@@ -20,7 +20,7 @@ uninstall_plasma_spotlight() {
     if [ -x "$WRAPPER_PATH" ]; then
         echo "Removing SDDM theme integration..."
         "$WRAPPER_PATH" --uninstall-sddm-theme || echo "Note: SDDM theme may not have been installed"
-        
+
         echo "Removing systemd timer..."
         "$WRAPPER_PATH" --disable-timer 2>/dev/null || true
         "$WRAPPER_PATH" --uninstall-timer 2>/dev/null || true
@@ -47,25 +47,25 @@ uninstall_plasma_spotlight() {
         BING_PATH=$(grep -o '"save_path_bing"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG_FILE" 2>/dev/null | sed 's/.*"\([^"]*\)".*/\1/' | sed "s|~|$HOME|")
         SPOTLIGHT_PATH=$(grep -o '"save_path_spotlight"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG_FILE" 2>/dev/null | sed 's/.*"\([^"]*\)".*/\1/' | sed "s|~|$HOME|")
     fi
-    
+
     echo ""
     # Check if running in interactive mode
     if [ -t 0 ]; then
-        read -p "Remove configuration directory (~/.config/plasma-spotlight)? [y/N] " -n 1 -r < /dev/tty
+        read -p "Remove configuration directory (~/.config/plasma-spotlight)? [y/N] " -n 1 -r </dev/tty
         echo
     else
         # Non-interactive mode, default to No
         echo "Non-interactive mode detected. Keeping configuration directory."
         REPLY="N"
     fi
-    
+
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         if [ -d "$CONFIG_DIR" ]; then
             echo "Removing config: $CONFIG_DIR"
             rm -rf "$CONFIG_DIR"
         fi
     fi
-    
+
     # Show wallpaper locations (if we found them)
     echo ""
     if [ -n "$BING_PATH" ] || [ -n "$SPOTLIGHT_PATH" ]; then
