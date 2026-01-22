@@ -9,7 +9,15 @@ from .systemd import install_timer, uninstall_timer, enable_timer, disable_timer
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def main():
+def main() -> int:
+    """Main entry point for plasma-spotlight application.
+    
+    Handles command-line arguments and orchestrates wallpaper downloads
+    and system updates for KDE Plasma lock screen and SDDM.
+    
+    Returns:
+        int: Exit code (0 for success, 1 for failure)
+    """
     parser = argparse.ArgumentParser(description="Daily Wallpaper Downloader for KDE Plasma (Fedora)")
     parser.add_argument("--config", help="Path to configuration file")
     parser.add_argument("--download-only", action="store_true", help="Only download images, do not update wallpaper")
@@ -32,11 +40,12 @@ def main():
     
     config = load_config(args.config)
     
-    # Override config with CLI args if provided
+    # Create effective config by merging CLI args (without mutating original config)
+    effective_config = config.copy()
     if args.sources:
-        config['download_sources'] = args.sources
+        effective_config['download_sources'] = args.sources
     if args.spotlight_batch:
-        config['spotlight_batch_count'] = args.spotlight_batch
+        effective_config['spotlight_batch_count'] = args.spotlight_batch
     
     if args.setup_sddm_theme:
         logger.info("Setting up SDDM Theme structure...")
@@ -63,10 +72,10 @@ def main():
         return 0 if uninstall_timer() else 1
     
     # Downloaders
-    download_sources = config.get('download_sources', 'both')
+    download_sources = effective_config.get('download_sources', 'both')
     
-    bing = BingDownloader(config)
-    spotlight = SpotlightDownloader(config)
+    bing = BingDownloader(effective_config)
+    spotlight = SpotlightDownloader(effective_config)
     
     logger.info("Starting Daily Wallpaper Downloader")
     
@@ -87,15 +96,17 @@ def main():
         logger.info("Download only mode. Exiting.")
         return 0
 
-    # Wallpaper Updates
-    # Logic to select which image to use for lockscreen/sddm could be configurable
-    # For now, let's assume we use the latest downloaded image from a preferred source (e.g., Spotlight)
-    # This logic needs to be refined based on user preference in config
+    # Wallpaper Updates - select image based on preferred source
+    preferred_source = effective_config.get('preferred_source', 'spotlight')
     
     latest_image = None
-    if downloaded_spotlight:
-        latest_image = downloaded_spotlight[0] # Assume first is newest/best
-    elif downloaded_bing:
+    if preferred_source == 'spotlight' and downloaded_spotlight:
+        latest_image = downloaded_spotlight[0]
+    elif preferred_source == 'bing' and downloaded_bing:
+        latest_image = downloaded_bing[0]
+    elif downloaded_spotlight:  # Fallback to spotlight if preferred not available
+        latest_image = downloaded_spotlight[0]
+    elif downloaded_bing:  # Final fallback to bing
         latest_image = downloaded_bing[0]
         
     if latest_image:
@@ -103,8 +114,8 @@ def main():
         # CLI flags override config if present (but action=store_true means they are False by default)
         # So we want (arg OR config) is True
         
-        do_update_lockscreen = args.update_lockscreen or config.get('update_lockscreen', False)
-        do_update_sddm = args.update_sddm or config.get('update_sddm', False)
+        do_update_lockscreen = args.update_lockscreen or effective_config.get('update_lockscreen', False)
+        do_update_sddm = args.update_sddm or effective_config.get('update_sddm', False)
 
         if do_update_lockscreen or do_update_sddm:
             # Always update the user symlink first if any update is requested
@@ -112,16 +123,15 @@ def main():
             if update_user_background(latest_image):
                 
                 if do_update_lockscreen:
-                    # Use the symlink path for lockscreen to avoid polluting history
                     logger.info("Updating Lock Screen configuration...")
-                    # We pass the Absolute Path of the symlink
-                    update_lockscreen(USER_BG_SYMLINK)
+                    if not update_lockscreen(USER_BG_SYMLINK):
+                        logger.error("Failed to update lock screen")
                     
                 if do_update_sddm:
                     logger.info("SDDM background updated via common symlink.")
-                    # No extra step needed as SDDM theme points to this symlink
             else:
                 logger.error("Failed to update user background symlink. Aborting system updates.")
+                return 1
 
     else:
         logger.info("No new images downloaded or found to update system.")

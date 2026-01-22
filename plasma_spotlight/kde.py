@@ -30,10 +30,14 @@ def run_command(cmd):
         logger.error(f"Command failed: {' '.join(cmd)}\nError: {e.stderr.decode().strip()}")
         return False
 
-def update_lockscreen(image_path):
-    """
-    Updates the KDE Lock Screen wallpaper using kwriteconfig6.
-    This is user-level, no sudo needed.
+def update_lockscreen(image_path: str) -> bool:
+    """Updates the KDE Lock Screen wallpaper using kwriteconfig6.
+    
+    Args:
+        image_path: Absolute path to the wallpaper image
+        
+    Returns:
+        bool: True if successful, False otherwise
     """
     # Check if we should use the symlink
     target_path = image_path
@@ -64,10 +68,14 @@ def update_lockscreen(image_path):
     
     return run_command(cmd)
 
-def setup_sddm_theme():
-    """
-    Sets up SDDM theme for Fedora Atomic.
-    Handles sudo elevation automatically.
+def setup_sddm_theme() -> bool:
+    """Sets up SDDM theme for Fedora Atomic.
+    
+    Creates user-writable background directory and system SDDM theme.
+    Handles sudo elevation automatically when needed.
+    
+    Returns:
+        bool: True if successful, False otherwise
     """
     # Part 1: User-writable setup (no sudo needed)
     logger.info("Creating user background directory...")
@@ -96,8 +104,15 @@ def setup_sddm_theme():
     # We're root - do system setup
     return _setup_sddm_as_root()
 
-def _setup_sddm_as_root():
-    """Root-only operations for SDDM theme setup."""
+def _setup_sddm_as_root() -> bool:
+    """Root-only operations for SDDM theme setup.
+    
+    Creates theme directory, copies breeze theme, configures SDDM,
+    and sets SELinux context.
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
     import os
     try:
         # Get the actual user (not root)
@@ -159,8 +174,12 @@ def _setup_sddm_as_root():
         logger.error(f"Failed to setup SDDM theme: {e}")
         return False
 
-def _set_selinux_context_as_root(actual_user):
-    """Set SELinux context for user background directory (must be run as root)."""
+def _set_selinux_context_as_root(actual_user: str) -> None:
+    """Set SELinux context for user background directory (must be run as root).
+    
+    Args:
+        actual_user: Username of the actual user (not root)
+    """
     # Check if SELinux is installed and enabled
     if not Path("/usr/sbin/selinuxenabled").exists():
         logger.debug("SELinux not installed, skipping context setup")
@@ -205,7 +224,7 @@ def _set_selinux_context_as_root(actual_user):
     except FileNotFoundError:
         logger.debug("SELinux tools not found, skipping context setup")
 
-def _set_selinux_context():
+def _set_selinux_context() -> None:
     """Set SELinux context for user background directory (deprecated - kept for compatibility)."""
     # Check if SELinux is installed and enabled
     if not Path("/usr/sbin/selinuxenabled").exists():
@@ -239,10 +258,14 @@ def _set_selinux_context():
     except FileNotFoundError:
         logger.debug("SELinux tools not found, skipping context setup")
 
-def uninstall_sddm_theme():
-    """
-    Uninstalls the SDDM theme completely.
-    Handles sudo elevation automatically.
+def uninstall_sddm_theme() -> bool:
+    """Uninstalls the SDDM theme completely.
+    
+    Removes system SDDM files and user background directory.
+    Handles sudo elevation automatically when needed.
+    
+    Returns:
+        bool: True if successful, False otherwise
     """
     import os
     if os.geteuid() != 0:
@@ -286,10 +309,16 @@ def uninstall_sddm_theme():
         logger.error(f"Failed to uninstall SDDM theme: {e}")
         return False
 
-def update_user_background(image_path):
-    """
-    Updates the symlink at ~/.local/share/plasma-spotlight/current.jpg
-    This is user-level, no sudo needed for daily updates!
+def update_user_background(image_path: str) -> bool:
+    """Updates the symlink at ~/.local/share/plasma-spotlight/current.jpg
+    
+    This is user-level, no sudo needed for daily updates.
+    
+    Args:
+        image_path: Absolute path to the wallpaper image
+        
+    Returns:
+        bool: True if successful, False otherwise
     """
     if not Path(image_path).exists():
         logger.error(f"Image not found: {image_path}")
