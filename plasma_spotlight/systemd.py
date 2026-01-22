@@ -9,16 +9,8 @@ SERVICE_NAME = "plasma-spotlight.service"
 TIMER_NAME = "plasma-spotlight.timer"
 SYSTEMD_USER_DIR = Path.home() / ".config/systemd/user"
 
-def get_script_path():
-    """Returns the absolute path to the main run script (run.py)."""
-    # Assuming this module is in src/systemd.py, and run.py is in project root
-    # Or we can use sys.argv[0] if it's reliable, but safer to find relative to this file
-    current_file = Path(__file__).resolve()
-    project_root = current_file.parent.parent
-    run_script = project_root / "run.py"
-    return run_script
-
-def generate_service_content(script_path):
+def generate_service_content():
+    """Generate systemd service content using python -m invocation."""
     python_exec = sys.executable
     return f"""[Unit]
 Description=Daily Wallpaper Downloader (Spotlight/Bing)
@@ -27,8 +19,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart={python_exec} {script_path} --update-lockscreen --update-sddm
-WorkingDirectory={script_path.parent}
+ExecStart={python_exec} -m plasma_spotlight --update-lockscreen --update-sddm
 StandardOutput=journal
 StandardError=journal
 
@@ -92,18 +83,13 @@ def run_systemctl(action, unit=None, flags=None):
 def install_timer():
     if not check_systemd_dir():
         return False
-    
-    script_path = get_script_path()
-    if not script_path.exists():
-        logger.error(f"Could not find run.py at {script_path}")
-        return False
 
     service_file = SYSTEMD_USER_DIR / SERVICE_NAME
     timer_file = SYSTEMD_USER_DIR / TIMER_NAME
 
     try:
         with open(service_file, 'w') as f:
-            f.write(generate_service_content(script_path))
+            f.write(generate_service_content())
         logger.info(f"Created {service_file}")
 
         with open(timer_file, 'w') as f:

@@ -66,8 +66,13 @@ class SpotlightDownloader:
                     item_json_str = item_wrapper.get('item')
                     if not item_json_str:
                         continue
+                    
+                    try:
+                        item = json.loads(item_json_str)
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Failed to parse item JSON: {e}")
+                        continue
                         
-                    item = json.loads(item_json_str)
                     ad = item.get('ad', {})
                     
                     # Extract Image URL

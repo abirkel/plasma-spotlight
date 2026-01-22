@@ -60,17 +60,9 @@ def download_file(url, filepath):
         return False
 
 def save_metadata(metadata, filepath):
-    """Saves metadata dictionary to a text file sidecar in metadata subfolder."""
+    """Saves metadata dictionary to a text file sidecar next to the image."""
     try:
-        # Ensure metadata subfolder exists
-        metadata_dir = Path(filepath).parent / "metadata"
-        ensure_directory(str(metadata_dir))
-        
-        # Save to metadata subfolder
-        filename = Path(filepath).name
-        metadata_filepath = metadata_dir / filename
-        
-        with open(metadata_filepath, 'w') as f:
+        with open(filepath, 'w') as f:
             source = metadata.get('source', 'Unknown Source').upper()
             f.write(f"{source} METADATA\n")
             f.write("=" * 20 + "\n")
@@ -89,7 +81,7 @@ def save_metadata(metadata, filepath):
                      label = k.replace('_', ' ').title()
                      f.write(f"{label:<16}: {v}\n")
 
-        logger.info(f"Generated sidecar: {metadata_filepath}")
+        logger.info(f"Generated sidecar: {filepath}")
         return True
     except Exception as e:
         logger.error(f"Failed to save metadata sidecar {filepath}: {e}")

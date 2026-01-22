@@ -11,7 +11,6 @@ Get fresh, high-quality wallpapers every day without lifting a finger. Windows S
 ## Features
 
 - **Dual Sources**: Windows Spotlight (Iris API) + Bing daily images from multiple regions
-- **Smart Deduplication**: Automatically filters duplicate images across regions
 - **Seamless Integration**: Updates both KDE lock screen and SDDM login background
 - **Atomic-Friendly**: Works perfectly on immutable Fedora variants (Silverblue/Kinoite)
 - **Set & Forget**: Systemd timer handles daily downloads automatically
@@ -97,10 +96,9 @@ The timer runs daily and automatically updates your wallpapers. Check status wit
 ## How It Works
 
 1. **Downloads**: Fetches images from Spotlight/Bing APIs to `~/Pictures/Wallpapers/`
-2. **Deduplicates**: Filters out duplicate Bing images across regions
-3. **Symlinks**: Updates `~/.local/share/plasma-spotlight/current.jpg` (no sudo needed)
-4. **Integrates**: Updates KDE lock screen config and SDDM theme points to symlink
-5. **Metadata**: Saves image details as `.txt` sidecars for reference
+2. **Symlinks**: Updates `~/.local/share/plasma-spotlight/current.jpg` (no sudo needed)
+3. **Integrates**: Updates KDE lock screen config and SDDM theme points to symlink
+4. **Metadata**: Saves image details as `.txt` sidecars for reference
 
 The SDDM theme lives in `/var/lib/sddm` (one-time sudo setup), but daily updates only touch the user-writable symlink—perfect for Atomic systems.
 

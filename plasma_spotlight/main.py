@@ -40,33 +40,27 @@ def main():
     
     if args.setup_sddm_theme:
         logger.info("Setting up SDDM Theme structure...")
-        setup_sddm_theme()
-        return # Exit after setup
+        return 0 if setup_sddm_theme() else 1
     
     if args.uninstall_sddm_theme:
         logger.info("Uninstalling SDDM Theme...")
-        uninstall_sddm_theme()
-        return # Exit after uninstall
+        return 0 if uninstall_sddm_theme() else 1
         
     if args.install_timer:
         logger.info("Installing systemd timer...")
-        install_timer()
-        return # Exit after admin action
+        return 0 if install_timer() else 1
         
     if args.enable_timer:
         logger.info("Enabling systemd timer...")
-        enable_timer()
-        return # Exit after admin action
+        return 0 if enable_timer() else 1
         
     if args.disable_timer:
         logger.info("Disabling systemd timer...")
-        disable_timer()
-        return # Exit after admin action
+        return 0 if disable_timer() else 1
         
     if args.uninstall_timer:
         logger.info("Uninstalling systemd timer...")
-        uninstall_timer()
-        return # Exit after admin action
+        return 0 if uninstall_timer() else 1
     
     # Downloaders
     download_sources = config.get('download_sources', 'both')
@@ -91,7 +85,7 @@ def main():
 
     if args.download_only:
         logger.info("Download only mode. Exiting.")
-        return
+        return 0
 
     # Wallpaper Updates
     # Logic to select which image to use for lockscreen/sddm could be configurable
@@ -131,6 +125,8 @@ def main():
 
     else:
         logger.info("No new images downloaded or found to update system.")
+    
+    return 0
 
 if __name__ == "__main__":
     main()

@@ -80,16 +80,12 @@ def setup_sddm_theme():
         logger.info("SDDM theme installation requires elevated privileges.")
         logger.info("Re-running setup with sudo...")
         
-        # Re-execute with sudo
+        # Re-execute with sudo using absolute path to this module
         import sys
-        # Use sys.argv[0] to get the actual invoked script
-        script_path = sys.argv[0]
-        cmd = ["sudo", "-E", sys.executable, script_path, "--setup-sddm-theme"]
+        cmd = ["sudo", sys.executable, "-m", "plasma_spotlight", "--setup-sddm-theme"]
         
         try:
             subprocess.run(cmd, check=True)
-            # Part 3: SELinux context (back as user)
-            _set_selinux_context()
             logger.info("SDDM theme setup complete!")
             logger.info("The theme will be active on the next login screen.")
             return True
@@ -151,6 +147,10 @@ def _setup_sddm_as_root():
             f.write("Current=plasma-spotlight\n")
         
         logger.info(f"SDDM configuration created: {SDDM_CONF}")
+        
+        # Set SELinux context while we're still root
+        _set_selinux_context_as_root(actual_user)
+        
         logger.info("SDDM theme installed successfully!")
         
         return True
@@ -159,8 +159,54 @@ def _setup_sddm_as_root():
         logger.error(f"Failed to setup SDDM theme: {e}")
         return False
 
+def _set_selinux_context_as_root(actual_user):
+    """Set SELinux context for user background directory (must be run as root)."""
+    # Check if SELinux is installed and enabled
+    if not Path("/usr/sbin/selinuxenabled").exists():
+        logger.debug("SELinux not installed, skipping context setup")
+        return
+    
+    try:
+        # Check if SELinux is enabled
+        result = subprocess.run(
+            ["/usr/sbin/selinuxenabled"],
+            check=False,
+            capture_output=False
+        )
+        
+        if result.returncode != 0:
+            logger.debug("SELinux not enabled, skipping context setup")
+            return
+        
+        # Determine the user's background directory
+        if actual_user and actual_user != 'root':
+            import pwd
+            user_home = Path(pwd.getpwnam(actual_user).pw_dir)
+            bg_dir = user_home / ".local/share/plasma-spotlight"
+        else:
+            bg_dir = USER_BG_DIR
+        
+        if not bg_dir.exists():
+            logger.debug(f"Background directory {bg_dir} doesn't exist yet, skipping SELinux context")
+            return
+        
+        logger.info(f"Setting SELinux context for {bg_dir}...")
+        subprocess.run(
+            ["chcon", "-R", "-t", "xdm_home_t", str(bg_dir)],
+            check=True,
+            capture_output=False
+        )
+        
+        logger.info("SELinux context set successfully (xdm_home_t)")
+        
+    except subprocess.CalledProcessError as e:
+        logger.warning(f"Could not set SELinux context: {e}")
+        logger.warning("SDDM may not be able to read the background image")
+    except FileNotFoundError:
+        logger.debug("SELinux tools not found, skipping context setup")
+
 def _set_selinux_context():
-    """Set SELinux context for user background directory."""
+    """Set SELinux context for user background directory (deprecated - kept for compatibility)."""
     # Check if SELinux is installed and enabled
     if not Path("/usr/sbin/selinuxenabled").exists():
         logger.debug("SELinux not installed, skipping context setup")
@@ -204,9 +250,7 @@ def uninstall_sddm_theme():
         logger.info("Re-running uninstall with sudo...")
         
         import sys
-        # Use sys.argv[0] to get the actual invoked script
-        script_path = sys.argv[0]
-        cmd = ["sudo", "-E", sys.executable, script_path, "--uninstall-sddm-theme"]
+        cmd = ["sudo", sys.executable, "-m", "plasma_spotlight", "--uninstall-sddm-theme"]
         
         try:
             result = subprocess.run(cmd, check=False)
@@ -256,8 +300,10 @@ def update_user_background(image_path):
         USER_BG_DIR.mkdir(parents=True, exist_ok=True)
         
         # Remove old symlink if exists (handles both valid and broken symlinks)
-        if USER_BG_SYMLINK.is_symlink() or USER_BG_SYMLINK.exists():
+        try:
             USER_BG_SYMLINK.unlink()
+        except FileNotFoundError:
+            pass  # Symlink doesn't exist, that's fine
         
         # Create new symlink
         USER_BG_SYMLINK.symlink_to(Path(image_path).absolute())
