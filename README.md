@@ -37,6 +37,12 @@ That's it. The installer sets up everything—SDDM theme, systemd timer, and run
 # Run manually (downloads + updates wallpapers)
 plasma-spotlight
 
+# Force refresh (ignores daily limit)
+plasma-spotlight --refresh
+
+# Check last update time
+plasma-spotlight --status
+
 # Download only (no wallpaper updates)
 plasma-spotlight --download-only
 
@@ -45,7 +51,13 @@ plasma-spotlight --disable-timer  # Pause daily updates
 plasma-spotlight --enable-timer   # Resume daily updates
 ```
 
-The systemd timer runs daily at midnight. Check status: `systemctl --user status plasma-spotlight.timer`
+**Automatic Updates:**
+- Runs daily at 12:05 AM
+- Runs on system boot
+- Runs on wake from suspend/hibernate
+- Limited to once per day (use `--refresh` to override)
+
+Check status: `systemctl --user status plasma-spotlight.timer`
 
 ## Configuration
 

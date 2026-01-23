@@ -121,7 +121,7 @@ EOF
 	cat >"$SYSTEMD_USER_DIR/plasma-spotlight.service" <<EOSERVICE
 [Unit]
 Description=Daily Wallpaper Downloader (Spotlight/Bing)
-After=network-online.target
+After=network-online.target suspend.target hibernate.target
 Wants=network-online.target
 
 [Service]
@@ -131,7 +131,7 @@ StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=default.target
+WantedBy=default.target suspend.target hibernate.target
 EOSERVICE
 
 	# Write timer file
@@ -140,7 +140,9 @@ EOSERVICE
 Description=Daily Timer for Wallpaper Downloader
 
 [Timer]
-OnCalendar=daily
+# Run at 12:05 AM daily
+OnCalendar=*-*-* 00:05:00
+# Catch up if system was off
 Persistent=true
 
 [Install]
@@ -216,15 +218,43 @@ EOTHEME
 
 echo "Theme configuration created"
 
+# 5b. Update metadata.desktop to give theme a unique name
+cat > "\$SDDM_THEME_DIR/metadata.desktop" <<EOMETA
+[SddmGreeterTheme]
+Name=Plasma Spotlight
+Description=Daily wallpaper from Windows Spotlight and Bing
+Author=Plasma Spotlight
+Copyright=(c) 2024
+License=MIT
+Type=sddm-theme
+Version=0.1
+Website=https://github.com/abirkel/plasma-spotlight
+Screenshot=preview.png
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=plasma-spotlight
+Theme-API=2.0
+QtVersion=6
+EOMETA
+
+echo "Theme metadata created"
+
 # 6. Create SDDM config to use our theme
 mkdir -p /etc/sddm.conf.d
 cat > "\$SDDM_CONF" <<EOCONF
 # Plasma Spotlight SDDM Configuration
 [Theme]
+ThemeDir=/var/sddm_themes/themes
 Current=plasma-spotlight
 EOCONF
 
 echo "SDDM configuration created"
+
+# 7. Fix SELinux context on cache directory
+if command -v restorecon &>/dev/null; then
+    restorecon -R "\$USER_BG_CACHE" 2>/dev/null || true
+    echo "Fixed SELinux context"
+fi
 
 echo "SDDM theme installed successfully"
 EOSUDO

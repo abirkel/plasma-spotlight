@@ -1,6 +1,7 @@
 import logging
 import shutil
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -8,6 +9,7 @@ logger = logging.getLogger(__name__)
 # System-readable, user-writable cache location (no sudo needed for daily updates)
 USER_BG_DIR = Path("/var/cache/plasma-spotlight")
 USER_BG_PATH = USER_BG_DIR / "current.jpg"
+STATUS_FILE = USER_BG_DIR / "last_run"
 
 
 def run_command(cmd):
@@ -65,6 +67,84 @@ def update_lockscreen(image_path: str) -> bool:
     ]
 
     return run_command(cmd)
+
+
+def should_run_update() -> bool:
+    """Check if we should run update based on last run time.
+
+    Returns:
+        bool: True if we should run (last run was not today), False otherwise
+    """
+    if not STATUS_FILE.exists():
+        logger.debug("No status file found, first run")
+        return True
+
+    try:
+        last_run_str = STATUS_FILE.read_text(encoding="utf-8").strip()
+        last_run = datetime.fromisoformat(last_run_str)
+
+        # Ensure timezone-aware comparison
+        if last_run.tzinfo is None:
+            last_run = last_run.replace(tzinfo=timezone.utc)
+
+        today = datetime.now(timezone.utc).date()
+        last_run_date = last_run.date()
+
+        if last_run_date == today:
+            # Convert to local time for display
+            last_run_local = last_run.astimezone()
+            logger.info(
+                f"Already updated today at {last_run_local.strftime('%H:%M:%S')}"
+            )
+            return False
+
+        logger.debug(f"Last run was {last_run_date}, running update")
+        return True
+
+    except (ValueError, OSError, FileNotFoundError, PermissionError) as e:
+        logger.warning(f"Could not read status file: {e}, proceeding with update")
+        return True
+
+
+def mark_run_complete() -> bool:
+    """Record current timestamp to status file.
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        STATUS_FILE.write_text(now, encoding="utf-8")
+        logger.debug(f"Marked run complete at {now}")
+        return True
+    except (OSError, PermissionError) as e:
+        logger.error(f"Failed to write status file: {e}")
+        return False
+
+
+def get_last_run_time() -> str:
+    """Get the last run time in user's local timezone.
+
+    Returns:
+        str: Formatted timestamp or error message
+    """
+    if not STATUS_FILE.exists():
+        return "Never run"
+
+    try:
+        last_run_str = STATUS_FILE.read_text(encoding="utf-8").strip()
+        last_run = datetime.fromisoformat(last_run_str)
+
+        # Ensure timezone-aware
+        if last_run.tzinfo is None:
+            last_run = last_run.replace(tzinfo=timezone.utc)
+
+        # Convert to local timezone
+        last_run_local = last_run.astimezone()
+        return last_run_local.strftime("%Y-%m-%d %H:%M:%S %Z")
+
+    except (ValueError, OSError, FileNotFoundError, PermissionError) as e:
+        return f"Error reading status: {e}"
 
 
 def update_user_background(image_path: str) -> bool:

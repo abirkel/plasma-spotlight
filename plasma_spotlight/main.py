@@ -8,6 +8,9 @@ from .spotlight import SpotlightDownloader
 from .kde import (
     update_lockscreen,
     update_user_background,
+    should_run_update,
+    mark_run_complete,
+    get_last_run_time,
     USER_BG_PATH,
 )
 from .systemd import enable_timer, disable_timer
@@ -47,6 +50,16 @@ def main() -> int:
         action="store_true",
         help="Only download images, do not update wallpaper",
     )
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Force wallpaper refresh, ignoring daily limit",
+    )
+    parser.add_argument(
+        "--status",
+        action="store_true",
+        help="Show last update time and exit",
+    )
 
     # Systemd timer control
     parser.add_argument(
@@ -62,6 +75,11 @@ def main() -> int:
 
     config = load_config()
 
+    if args.status:
+        last_run = get_last_run_time()
+        print(f"Last wallpaper update: {last_run}")
+        return 0
+
     if args.enable_timer:
         logger.info("Enabling systemd timer...")
         return 0 if enable_timer() else 1
@@ -69,6 +87,14 @@ def main() -> int:
     if args.disable_timer:
         logger.info("Disabling systemd timer...")
         return 0 if disable_timer() else 1
+
+    # Check if we should run (unless --refresh or --download-only)
+    if not args.refresh and not args.download_only:
+        if not should_run_update():
+            logger.info(
+                "Wallpaper already updated today. Use --refresh to force update."
+            )
+            return 0
 
     # Downloaders
     download_sources = config.get("download_sources", "both")
@@ -131,7 +157,7 @@ def main() -> int:
     if latest_image_path:
         logger.info(f"Updating wallpapers to: {latest_image_path}")
         if not update_user_background(latest_image_path):
-            logger.error("Failed to update user background symlink")
+            logger.error("Failed to update user background cache")
             return 1
 
         logger.info("Updating lock screen configuration...")
@@ -140,6 +166,10 @@ def main() -> int:
             return 1
 
         logger.info("Wallpapers updated successfully (lock screen + SDDM)")
+
+        # Mark run as complete
+        if not mark_run_complete():
+            logger.warning("Failed to update status file, but wallpaper was updated")
     else:
         logger.info("No new images downloaded. Wallpaper unchanged.")
 
