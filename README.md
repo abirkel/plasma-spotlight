@@ -1,4 +1,4 @@
-<img src="thumbnail.jpg" alt="Plasma Spotlight" width="480">
+<img src="thumbnail.jpg" alt="Plasma Spotlight" width="240">
 
 # Plasma Spotlight
 
