@@ -13,28 +13,41 @@ import urllib.parse
 import json
 import datetime
 from pathlib import Path
+from typing import Optional, List
 from .utils import download_file, save_metadata, fetch_json
 
 logger = logging.getLogger(__name__)
+
+# Constants
+SPOTLIGHT_API_URL = "https://fd.api.iris.microsoft.com/v4/api/selection"
+SPOTLIGHT_USER_AGENT = "Mozilla/5.0"
+SPOTLIGHT_PLACEMENT = "88000820"
+SPOTLIGHT_MIN_BATCH = 1
+SPOTLIGHT_MAX_BATCH = 4
 
 
 class SpotlightDownloader:
     def __init__(self, config):
         self.config = config
         self.save_path = Path(self.config["save_path_spotlight"])
-        self.api_url = "https://fd.api.iris.microsoft.com/v4/api/selection"
-        # User agent from script
-        self.user_agent = "Mozilla/5.0"
+        self.api_url = SPOTLIGHT_API_URL
+        self.user_agent = SPOTLIGHT_USER_AGENT
 
-    def run(self):
+    def run(self) -> Optional[List[str]]:
+        """Download Windows Spotlight wallpapers.
+
+        Returns:
+            List of downloaded image paths as strings (empty if no new images),
+            or None if download failed
+        """
         logger.info("Running Spotlight Downloader...")
 
         # Configurable batch count (1-4)
         batch_count = self.config.get("spotlight_batch_count", 4)
-        batch_count = max(1, min(4, batch_count))  # Clamp to 1-4
+        batch_count = max(SPOTLIGHT_MIN_BATCH, min(SPOTLIGHT_MAX_BATCH, batch_count))
 
         params = {
-            "placement": "88000820",
+            "placement": SPOTLIGHT_PLACEMENT,
             "bcnt": str(batch_count),
             "country": self.config.get("spotlight_country", "US"),
             "locale": self.config.get("spotlight_locale", "en-US"),
@@ -78,12 +91,16 @@ class SpotlightDownloader:
                     # Extract Image URL
                     img_url = ad.get("landscapeImage", {}).get("asset")
 
-                    if not img_url:
+                    if not img_url or not isinstance(img_url, str):
                         logger.warning("No landscape image found in item")
                         continue
 
                     # Filename logic with 5-level fallback
-                    raw_filename = img_url.split("/")[-1]
+                    url_parts = img_url.split("/")
+                    if not url_parts:
+                        logger.warning(f"Invalid image URL: {img_url}")
+                        continue
+                    raw_filename = url_parts[-1]
                     filename = self._get_clean_filename(img_url, ad, raw_filename)
 
                     full_path = self.save_path / filename
@@ -98,7 +115,7 @@ class SpotlightDownloader:
                     desc = ad.get("description", "No Description")
                     copyright = ad.get("copyright", "No Copyright")
 
-                    success = download_file(img_url, str(full_path))
+                    success = download_file(img_url, full_path)
 
                     if not success:
                         logger.error(f"{filename}: Download failed - skipping")
@@ -124,7 +141,7 @@ class SpotlightDownloader:
                             ]
                         ),
                     }
-                    save_metadata(meta, str(full_path))
+                    save_metadata(meta, full_path)
 
                 except Exception as e:
                     logger.error(f"Error processing spotlight item: {e}")

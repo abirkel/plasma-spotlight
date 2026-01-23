@@ -4,37 +4,108 @@
 # Safe for curl | bash usage
 
 uninstall_plasma_spotlight() {
-    set -e # Exit on any error
+    # No set -e - uninstall should be best-effort
+    # Continue cleaning up even if some operations fail
 
     # Configuration
     INSTALL_DIR="$HOME/.local/share/plasma-spotlight"
     BIN_DIR="$HOME/.local/bin"
     CONFIG_DIR="$HOME/.config/plasma-spotlight"
     CONFIG_FILE="$CONFIG_DIR/config.json"
+    SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
     SCRIPT_NAME="plasma-spotlight"
     WRAPPER_PATH="$BIN_DIR/$SCRIPT_NAME"
 
     echo "Uninstalling Plasma Spotlight..."
+    echo ""
 
-    # Step 1: Uninstall SDDM theme and systemd timer (if installed)
-    if [ -x "$WRAPPER_PATH" ]; then
-        echo "Removing SDDM theme and systemd timer..."
-        "$WRAPPER_PATH" --_internal-uninstall || echo "Note: SDDM theme or timer may not have been installed"
+    # ============================================
+    # SYSTEM COMPONENT REMOVAL (REQUIRES SUDO)
+    # ============================================
+
+    echo "Removing system components (requires sudo)..."
+
+    if sudo bash <<EOSUDO; then
+set -e
+
+SDDM_THEME_DIR="/var/lib/sddm/themes/plasma-spotlight"
+SDDM_CONF="/etc/sddm.conf.d/plasma-spotlight.conf"
+
+# Remove SDDM theme directory
+if [ -d "\$SDDM_THEME_DIR" ]; then
+    rm -rf "\$SDDM_THEME_DIR"
+    echo "Removed SDDM theme"
+fi
+
+# Remove SDDM configuration
+if [ -f "\$SDDM_CONF" ]; then
+    rm -f "\$SDDM_CONF"
+    echo "Removed SDDM config"
+fi
+
+echo "System components removed"
+EOSUDO
+        echo ""
+    else
+        echo ""
+        echo "⚠ Warning: System component removal failed"
+        echo "  You may need to manually remove:"
+        echo "  - /var/lib/sddm/themes/plasma-spotlight/"
+        echo "  - /etc/sddm.conf.d/plasma-spotlight.conf"
+        echo ""
+        echo "Continuing with user component cleanup..."
+        echo ""
     fi
 
-    # Step 2: Remove installation directory
+    # ============================================
+    # USER COMPONENT REMOVAL (NO SUDO)
+    # ============================================
+
+    echo "Removing user components..."
+
+    # 1. Disable and remove systemd timer
+    if [ -f "$SYSTEMD_USER_DIR/plasma-spotlight.timer" ]; then
+        systemctl --user disable --now plasma-spotlight.timer 2>/dev/null || true
+        rm -f "$SYSTEMD_USER_DIR/plasma-spotlight.timer"
+        echo "Removed systemd timer"
+    fi
+
+    if [ -f "$SYSTEMD_USER_DIR/plasma-spotlight.service" ]; then
+        rm -f "$SYSTEMD_USER_DIR/plasma-spotlight.service"
+        echo "Removed systemd service"
+    fi
+
+    systemctl --user daemon-reload 2>/dev/null || true
+
+    # 2. Remove user background symlink
+    if [ -L "$HOME/.local/share/plasma-spotlight/current.jpg" ] || [ -f "$HOME/.local/share/plasma-spotlight/current.jpg" ]; then
+        rm -f "$HOME/.local/share/plasma-spotlight/current.jpg"
+        echo "Removed user background symlink"
+    fi
+
+    echo "User components removed"
+    echo ""
+
+    # ============================================
+    # REMOVE INSTALLATION FILES
+    # ============================================
+
+    # Remove installation directory
     if [ -d "$INSTALL_DIR" ]; then
         echo "Removing installation directory: $INSTALL_DIR"
         rm -rf "$INSTALL_DIR"
     fi
 
-    # Step 3: Remove executable symlink
+    # Remove executable
     if [ -f "$WRAPPER_PATH" ] || [ -L "$WRAPPER_PATH" ]; then
         echo "Removing executable: $WRAPPER_PATH"
         rm -f "$WRAPPER_PATH"
     fi
 
-    # Step 4: Optionally remove configuration directory
+    # ============================================
+    # OPTIONAL CONFIG REMOVAL
+    # ============================================
+
     # Try to read wallpaper paths from config before we delete it
     BING_PATH=""
     SPOTLIGHT_PATH=""

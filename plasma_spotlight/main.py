@@ -1,17 +1,16 @@
 import argparse
 import logging
 import os
+from typing import Optional, List
 from .config import load_config
 from .bing import BingDownloader
 from .spotlight import SpotlightDownloader
 from .kde import (
     update_lockscreen,
-    internal_install,
-    internal_uninstall,
     update_user_background,
     USER_BG_SYMLINK,
 )
-from .systemd import install_timer, uninstall_timer, enable_timer, disable_timer
+from .systemd import enable_timer, disable_timer
 
 
 def setup_logging():
@@ -48,18 +47,6 @@ def main() -> int:
         action="store_true",
         help="Only download images, do not update wallpaper",
     )
-    
-    # Internal arguments (hidden from help)
-    parser.add_argument(
-        "--_internal-install",
-        action="store_true",
-        help=argparse.SUPPRESS,
-    )
-    parser.add_argument(
-        "--_internal-uninstall",
-        action="store_true",
-        help=argparse.SUPPRESS,
-    )
 
     # Systemd timer control
     parser.add_argument(
@@ -75,17 +62,6 @@ def main() -> int:
 
     config = load_config()
 
-    # Use config values directly
-    effective_config = config.copy()
-
-    if args._internal_install:
-        logger.info("Installing SDDM theme and systemd timer...")
-        return 0 if internal_install() else 1
-
-    if args._internal_uninstall:
-        logger.info("Uninstalling SDDM theme and systemd timer...")
-        return 0 if internal_uninstall() else 1
-
     if args.enable_timer:
         logger.info("Enabling systemd timer...")
         return 0 if enable_timer() else 1
@@ -95,58 +71,123 @@ def main() -> int:
         return 0 if disable_timer() else 1
 
     # Downloaders
-    download_sources = effective_config.get("download_sources", "both")
+    download_sources = config.get("download_sources", "both")
+    preferred_source = config.get("preferred_source", "spotlight")
 
-    bing = BingDownloader(effective_config)
-    spotlight = SpotlightDownloader(effective_config)
+    bing = BingDownloader(config)
+    spotlight = SpotlightDownloader(config)
 
     logger.info("Starting Daily Wallpaper Downloader")
 
-    downloaded_bing = []
-    downloaded_spotlight = []
+    downloaded_bing: Optional[List[str]] = None
+    downloaded_spotlight: Optional[List[str]] = None
+    bing_failed = False
+    spotlight_failed = False
 
+    # Download from configured sources
     if download_sources in ["bing", "both"]:
-        downloaded_bing = bing.run()
+        result = bing.run()
+        if result is None:
+            bing_failed = True
+            logger.error("Bing download encountered a critical error")
+        else:
+            downloaded_bing = result
+            if len(result) == 0:
+                logger.debug("Bing: No new images available")
     else:
         logger.info("Skipping Bing (source not selected)")
 
     if download_sources in ["spotlight", "both"]:
-        downloaded_spotlight = spotlight.run()
+        result = spotlight.run()
+        if result is None:
+            spotlight_failed = True
+            logger.error("Spotlight download encountered a critical error")
+        else:
+            downloaded_spotlight = result
+            if len(result) == 0:
+                logger.debug("Spotlight: No new images available")
     else:
         logger.info("Skipping Spotlight (source not selected)")
+
+    # Check for actual failures (not just no new images)
+    if bing_failed or spotlight_failed:
+        failed_sources = []
+        if bing_failed:
+            failed_sources.append("Bing")
+        if spotlight_failed:
+            failed_sources.append("Spotlight")
+        logger.error(f"Critical download failure from: {', '.join(failed_sources)}")
+        return 1
 
     if args.download_only:
         logger.info("Download only mode. Exiting.")
         return 0
 
-    # Wallpaper Updates - select image based on preferred source
-    preferred_source = effective_config.get("preferred_source", "spotlight")
+    # Select image based on preferred source and what was actually downloaded
+    latest_image_path = _select_wallpaper_image(
+        preferred_source, download_sources, downloaded_spotlight, downloaded_bing
+    )
 
-    latest_image = None
-    if preferred_source == "spotlight" and downloaded_spotlight:
-        latest_image = downloaded_spotlight[0]
-    elif preferred_source == "bing" and downloaded_bing:
-        latest_image = downloaded_bing[0]
-    elif downloaded_spotlight:  # Fallback to spotlight if preferred not available
-        latest_image = downloaded_spotlight[0]
-    elif downloaded_bing:  # Final fallback to bing
-        latest_image = downloaded_bing[0]
-
-    if latest_image:
-        logger.info(f"Updating wallpapers to: {latest_image}")
-        if update_user_background(latest_image):
-            logger.info("Updating lock screen configuration...")
-            if not update_lockscreen(USER_BG_SYMLINK):
-                logger.error("Failed to update lock screen")
-                return 1
-            logger.info("Wallpapers updated successfully (lock screen + SDDM)")
-        else:
-            logger.error("Failed to update wallpapers")
+    if latest_image_path:
+        logger.info(f"Updating wallpapers to: {latest_image_path}")
+        if not update_user_background(latest_image_path):
+            logger.error("Failed to update user background symlink")
             return 1
+
+        logger.info("Updating lock screen configuration...")
+        if not update_lockscreen(str(USER_BG_SYMLINK)):
+            logger.error("Failed to update lock screen")
+            return 1
+
+        logger.info("Wallpapers updated successfully (lock screen + SDDM)")
     else:
-        logger.info("No new images downloaded.")
+        logger.info("No new images downloaded. Wallpaper unchanged.")
 
     return 0
+
+
+def _select_wallpaper_image(
+    preferred_source: str,
+    download_sources: str,
+    downloaded_spotlight: Optional[List[str]],
+    downloaded_bing: Optional[List[str]],
+) -> Optional[str]:
+    """Select the wallpaper image based on preferences and what was downloaded.
+
+    Args:
+        preferred_source: User's preferred source ("spotlight" or "bing")
+        download_sources: Which sources are enabled ("spotlight", "bing", or "both")
+        downloaded_spotlight: List of downloaded spotlight image paths (or empty list)
+        downloaded_bing: List of downloaded bing image paths (or empty list)
+
+    Returns:
+        Path string to selected image, or None if no images available
+    """
+    # Only consider sources that were actually enabled
+    spotlight_available = (
+        download_sources in ["spotlight", "both"]
+        and downloaded_spotlight is not None
+        and len(downloaded_spotlight) > 0
+    )
+    bing_available = (
+        download_sources in ["bing", "both"]
+        and downloaded_bing is not None
+        and len(downloaded_bing) > 0
+    )
+
+    # Try preferred source first
+    if preferred_source == "spotlight" and spotlight_available:
+        return downloaded_spotlight[0]
+    elif preferred_source == "bing" and bing_available:
+        return downloaded_bing[0]
+
+    # Fallback to any available source
+    if spotlight_available:
+        return downloaded_spotlight[0]
+    elif bing_available:
+        return downloaded_bing[0]
+
+    return None
 
 
 if __name__ == "__main__":

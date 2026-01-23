@@ -40,7 +40,7 @@ plasma-spotlight
 # Download only (no wallpaper updates)
 plasma-spotlight --download-only
 
-# Control automation
+# Control the daily timer
 plasma-spotlight --disable-timer  # Pause daily updates
 plasma-spotlight --enable-timer   # Resume daily updates
 ```
@@ -92,6 +92,11 @@ The SDDM theme lives in `/var/lib/sddm` (one-time sudo setup during install), bu
 
 ## Uninstall
 
+```bash
+~/.local/share/plasma-spotlight/uninstall.sh
+```
+
+Or remotely:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/abirkel/plasma-spotlight/main/uninstall.sh | bash
 ```

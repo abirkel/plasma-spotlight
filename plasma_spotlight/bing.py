@@ -1,9 +1,14 @@
 import logging
 import datetime
 from pathlib import Path
+from typing import Optional, List
 from .utils import download_file, save_metadata, fetch_json, check_url_exists
 
 logger = logging.getLogger(__name__)
+
+# Constants
+BING_BASE_URL = "https://www.bing.com"
+BING_ARCHIVE_URL = "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt={}"
 
 
 class BingDownloader:
@@ -11,12 +16,16 @@ class BingDownloader:
         self.config = config
         self.save_path = Path(self.config["save_path_bing"])
         self.regions = self.config.get("bing_regions", ["en-US"])
-        self.base_url = "https://www.bing.com"
-        self.archive_url = (
-            "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt={}"
-        )
+        self.base_url = BING_BASE_URL
+        self.archive_url = BING_ARCHIVE_URL
 
-    def run(self):
+    def run(self) -> Optional[List[str]]:
+        """Download Bing daily wallpapers.
+
+        Returns:
+            List of downloaded image paths as strings (empty if no new images),
+            or None if download failed
+        """
         logger.info(f"Running Bing Downloader for regions: {self.regions}")
         downloaded_images = []
         total_downloaded = 0
@@ -35,6 +44,10 @@ class BingDownloader:
 
                 for image_data in images:
                     urlbase = image_data.get("urlbase")
+
+                    if not urlbase:
+                        logger.warning(f"Missing urlbase in image data for {region}")
+                        continue
 
                     # Extract clean image name (remove OHR. prefix and region/ID suffix)
                     source_id = urlbase.split("id=")[-1]
@@ -66,7 +79,7 @@ class BingDownloader:
                         continue
 
                     # Download image in desired resolution
-                    success = download_file(image_url, str(full_path))
+                    success = download_file(image_url, full_path)
 
                     if not success:
                         logger.error(f"{base_name}: Download failed - skipping")
@@ -85,7 +98,7 @@ class BingDownloader:
                         "region": region,
                         "start_date": image_data.get("startdate"),
                     }
-                    save_metadata(meta, str(full_path))
+                    save_metadata(meta, full_path)
 
             except Exception as e:
                 logger.error(f"Error fetching Bing images for region {region}: {e}")

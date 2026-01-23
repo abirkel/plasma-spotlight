@@ -29,11 +29,17 @@ install_plasma_spotlight() {
     if ! command -v kwriteconfig6 &>/dev/null; then
         echo "Warning: kwriteconfig6 not found. KDE Plasma 6 may not be installed."
         echo "This tool requires KDE Plasma 6 for lock screen integration."
-        read -p "Continue anyway? [y/N] " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "Installation cancelled."
-            exit 1
+
+        # Only prompt if running interactively
+        if [ -t 0 ]; then
+            read -p "Continue anyway? [y/N] " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo "Installation cancelled."
+                exit 1
+            fi
+        else
+            echo "Non-interactive mode: Continuing without kwriteconfig6"
         fi
     fi
 
@@ -50,18 +56,25 @@ install_plasma_spotlight() {
         echo "Add this line to your ~/.bashrc or ~/.zshrc:"
         echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
         echo ""
-        read -r -p "Press Enter to continue with installation..."
-        echo ""
+
+        # Only prompt if running interactively
+        if [ -t 0 ]; then
+            read -r -p "Press Enter to continue with installation..."
+            echo ""
+        fi
     fi
 
     # Install Logic
     if [ -f "pyproject.toml" ] && [ -d ".git" ]; then
-        echo "Detected local repository. Syncing files..."
-        if command -v rsync &>/dev/null; then
-            rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' ./ "$INSTALL_DIR/"
-        else
-            cp -r . "$INSTALL_DIR/"
-        fi
+        echo "Detected local repository. Copying files..."
+        mkdir -p "$INSTALL_DIR/plasma_spotlight"
+
+        # Whitelist approach: Copy only what we need
+        # This is safer and more explicit than trying to exclude everything we don't want
+        cp plasma_spotlight/*.py "$INSTALL_DIR/plasma_spotlight/"
+        cp pyproject.toml LICENSE README.md install.sh uninstall.sh "$INSTALL_DIR/"
+
+        echo "Copied application files to $INSTALL_DIR"
     else
         # Remote install (curl | bash)
         if [ -d "$INSTALL_DIR/.git" ]; then
@@ -89,19 +102,147 @@ EOF
     echo "✓ Executable created at: $WRAPPER_PATH"
     echo ""
 
-    # Run internal installation (SDDM + systemd timer)
-    echo "Setting up SDDM theme and systemd timer..."
-    if "$WRAPPER_PATH" --_internal-install; then
-        echo ""
-        echo "✓ SDDM theme and systemd timer installed successfully!"
-        echo "✓ The systemd timer is enabled and will run daily at midnight."
-        echo "✓ You can disable it with: $SCRIPT_NAME --disable-timer"
-        echo "✓ You can enable it again with: $SCRIPT_NAME --enable-timer"
-    else
-        echo ""
-        echo "⚠ Warning: Failed to install SDDM theme or systemd timer."
-        echo "You can try running manually: $SCRIPT_NAME --_internal-install"
+    # ============================================
+    # USER COMPONENT INSTALLATION (NO SUDO)
+    # ============================================
+
+    echo "Installing user components..."
+
+    SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
+    SCRIPT_PATH="$BIN_DIR/$SCRIPT_NAME"
+
+    # 1. Create user directories
+    mkdir -p "$SYSTEMD_USER_DIR"
+
+    # 2. Install systemd user timer
+    echo "Installing systemd user timer..."
+
+    # Write service file
+    cat >"$SYSTEMD_USER_DIR/plasma-spotlight.service" <<EOSERVICE
+[Unit]
+Description=Daily Wallpaper Downloader (Spotlight/Bing)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=$SCRIPT_PATH
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+EOSERVICE
+
+    # Write timer file
+    cat >"$SYSTEMD_USER_DIR/plasma-spotlight.timer" <<EOTIMER
+[Unit]
+Description=Daily Timer for Wallpaper Downloader
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOTIMER
+
+    # Reload systemd and enable timer
+    systemctl --user daemon-reload
+    if ! systemctl --user enable --now plasma-spotlight.timer; then
+        echo "✗ Failed to enable systemd timer"
+        exit 1
     fi
+
+    echo "✓ User components installed successfully"
+
+    # ============================================
+    # SYSTEM COMPONENT INSTALLATION (REQUIRES SUDO)
+    # ============================================
+
+    echo ""
+    echo "Installing system components (requires sudo for SDDM theme)..."
+
+    # Run system installation as root
+    if sudo bash <<EOSUDO; then
+set -e
+
+# Get actual user (not root)
+ACTUAL_USER=\${SUDO_USER:-\$USER}
+if [ "\$ACTUAL_USER" = "root" ]; then
+    echo "Warning: Running as root directly"
+    USER_HOME="\$HOME"
+else
+    USER_HOME=\$(eval echo ~\$ACTUAL_USER)
+fi
+
+SDDM_THEME_DIR="/var/lib/sddm/themes/plasma-spotlight"
+SDDM_CONF="/etc/sddm.conf.d/plasma-spotlight.conf"
+USER_BG_PATH="\$USER_HOME/.local/share/plasma-spotlight/current.jpg"
+
+echo "Setting up SDDM theme..."
+
+# 1. Create theme directory
+mkdir -p "\$SDDM_THEME_DIR"
+
+# 2. Copy breeze theme as base
+if [ -d "/usr/share/sddm/themes/breeze" ]; then
+    echo "Copying breeze theme as base..."
+    cp -r /usr/share/sddm/themes/breeze/* "\$SDDM_THEME_DIR/"
+else
+    echo "Warning: Breeze theme not found"
+fi
+
+# 3. Ensure user background directory exists
+mkdir -p "\$USER_HOME/.local/share/plasma-spotlight"
+
+# 4. Initialize current.jpg from breeze background if it doesn't exist
+if [ -f "/usr/share/sddm/themes/breeze/components/artwork/background.png" ] && [ ! -f "\$USER_BG_PATH" ]; then
+    cp /usr/share/sddm/themes/breeze/components/artwork/background.png "\$USER_BG_PATH"
+    echo "Initialized current.jpg from breeze background"
+fi
+
+# 5. Create theme.conf pointing to user's background
+cat > "\$SDDM_THEME_DIR/theme.conf" <<EOTHEME
+# Plasma Spotlight SDDM Theme Configuration
+[General]
+background=\$USER_BG_PATH
+EOTHEME
+
+echo "Theme configuration created"
+
+# 6. Create SDDM config to use our theme
+mkdir -p /etc/sddm.conf.d
+cat > "\$SDDM_CONF" <<EOCONF
+# Plasma Spotlight SDDM Configuration
+# This file sets the custom theme directory and activates the theme
+[Theme]
+ThemeDir=/var/lib/sddm/themes
+Current=plasma-spotlight
+EOCONF
+
+echo "SDDM configuration created"
+
+# 7. Set SELinux context (if SELinux is enabled)
+if command -v selinuxenabled &>/dev/null && selinuxenabled 2>/dev/null; then
+    echo "Setting SELinux context..."
+    chcon -R -t xdm_home_t "\$USER_HOME/.local/share/plasma-spotlight" 2>/dev/null || echo "Warning: Could not set SELinux context"
+fi
+
+echo "SDDM theme installed successfully"
+EOSUDO
+        echo "✓ System components installed successfully"
+    else
+        echo "✗ Failed to install system components"
+        exit 1
+    fi
+
+    echo ""
+    echo "✓ Installation complete!"
+    echo "✓ The systemd timer is enabled and will run daily at midnight"
+    echo "✓ SDDM theme will be active on the next login screen"
+    echo "✓ You can disable the timer with: $SCRIPT_NAME --disable-timer"
+    echo "✓ You can enable it again with: $SCRIPT_NAME --enable-timer"
     echo ""
 
     # Check if ~/.local/bin is in PATH (show message only if not already shown)

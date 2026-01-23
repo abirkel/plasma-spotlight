@@ -1,147 +1,52 @@
-import sys
+"""Systemd timer management for plasma-spotlight.
+
+This module contains ONLY runtime functions for enabling/disabling the timer.
+Installation of the timer is handled by install.sh.
+"""
+
 import subprocess
 import logging
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-SERVICE_NAME = "plasma-spotlight.service"
 TIMER_NAME = "plasma-spotlight.timer"
-SYSTEMD_USER_DIR = Path.home() / ".config/systemd/user"
 
 
-def generate_service_content():
-    """Generate systemd service content using the installed entry point script."""
-    import shutil
-    
-    script_path = shutil.which("plasma-spotlight")
-    if not script_path:
-        logger.warning("Could not find plasma-spotlight in PATH, falling back to python -m")
-        script_path = f"{sys.executable} -m plasma_spotlight"
-    
-    return f"""[Unit]
-Description=Daily Wallpaper Downloader (Spotlight/Bing)
-After=network-online.target
-Wants=network-online.target
+def enable_timer() -> bool:
+    """Enable and start the systemd user timer.
 
-[Service]
-Type=oneshot
-ExecStart={script_path}
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=default.target
-"""
-
-
-def generate_timer_content():
-    return """[Unit]
-Description=Daily Timer for Wallpaper Downloader
-
-[Timer]
-OnCalendar=daily
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-"""
-
-
-def check_systemd_dir():
-    if not SYSTEMD_USER_DIR.exists():
-        try:
-            SYSTEMD_USER_DIR.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            logger.error(f"Failed to create systemd user dir: {e}")
-            return False
-    return True
-
-
-def run_systemctl(action, unit=None, flags=None):
-    """Run systemctl command with optional unit and flags.
-
-    Args:
-        action: systemctl action (e.g., 'enable', 'disable', 'daemon-reload')
-        unit: optional unit name (e.g., 'plasma-spotlight.timer')
-        flags: optional list of flags (e.g., ['--now'])
+    Returns:
+        bool: True if successful, False otherwise
     """
-    cmd = ["systemctl", "--user"]
-
-    # Add flags if provided
-    if flags:
-        if isinstance(flags, list):
-            cmd.extend(flags)
-        else:
-            cmd.append(flags)
-
-    # Add action
-    cmd.append(action)
-
-    # Add unit if provided
-    if unit:
-        cmd.append(unit)
-
     try:
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        logger.info(f"Successfully ran: {' '.join(cmd)}")
+        subprocess.run(
+            ["systemctl", "--user", "enable", "--now", TIMER_NAME],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        logger.info(f"Enabled and started {TIMER_NAME}")
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to run systemctl {action}: {e.stderr.decode().strip()}")
+        logger.error(f"Failed to enable timer: {e.stderr.decode().strip()}")
         return False
 
 
-def install_timer():
-    if not check_systemd_dir():
-        return False
+def disable_timer() -> bool:
+    """Disable and stop the systemd user timer.
 
-    service_file = SYSTEMD_USER_DIR / SERVICE_NAME
-    timer_file = SYSTEMD_USER_DIR / TIMER_NAME
-
+    Returns:
+        bool: True if successful, False otherwise
+    """
     try:
-        with open(service_file, "w") as f:
-            f.write(generate_service_content())
-        logger.info(f"Created {service_file}")
-
-        with open(timer_file, "w") as f:
-            f.write(generate_timer_content())
-        logger.info(f"Created {timer_file}")
-
-        # Reload daemon to pick up new files
-        run_systemctl("daemon-reload")
+        subprocess.run(
+            ["systemctl", "--user", "disable", "--now", TIMER_NAME],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        logger.info(f"Disabled and stopped {TIMER_NAME}")
         return True
-    except OSError as e:
-        logger.error(f"Failed to write unit files: {e}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to disable timer: {e.stderr.decode().strip()}")
         return False
-
-
-def uninstall_timer():
-    # Stop/Disable first
-    disable_timer()
-
-    service_file = SYSTEMD_USER_DIR / SERVICE_NAME
-    timer_file = SYSTEMD_USER_DIR / TIMER_NAME
-
-    try:
-        if timer_file.exists():
-            timer_file.unlink()
-            logger.info(f"Removed {timer_file}")
-
-        if service_file.exists():
-            service_file.unlink()
-            logger.info(f"Removed {service_file}")
-
-        run_systemctl("daemon-reload")
-        return True
-    except OSError as e:
-        logger.error(f"Failed to remove unit files: {e}")
-        return False
-
-
-def enable_timer():
-    # We only enable the timer, not the service (since it's oneshot triggered by timer)
-    return run_systemctl("enable", TIMER_NAME, flags=["--now"])
-
-
-def disable_timer():
-    return run_systemctl("disable", TIMER_NAME, flags=["--now"])

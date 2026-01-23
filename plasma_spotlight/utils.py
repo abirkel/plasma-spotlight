@@ -4,17 +4,30 @@ import json
 import logging
 import shutil
 from pathlib import Path
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
-def ensure_directory(path):
-    """Ensures the directory exists."""
+def ensure_directory(path) -> None:
+    """Ensures the directory exists.
+
+    Args:
+        path: Directory path (str or Path) to create
+    """
     Path(path).mkdir(parents=True, exist_ok=True)
 
 
-def fetch_json(url, headers=None):
-    """Fetches JSON data from a URL using urllib."""
+def fetch_json(url, headers=None) -> Optional[dict]:
+    """Fetches JSON data from a URL using urllib.
+
+    Args:
+        url: URL to fetch JSON from
+        headers: Optional HTTP headers
+
+    Returns:
+        Parsed JSON data as dict, or None if failed
+    """
     try:
         req = urllib.request.Request(url, headers=headers or {})
         with urllib.request.urlopen(req) as response:
@@ -28,8 +41,15 @@ def fetch_json(url, headers=None):
         return None
 
 
-def check_url_exists(url):
-    """Check if a URL exists using HTTP HEAD request."""
+def check_url_exists(url) -> bool:
+    """Check if a URL exists using HTTP HEAD request.
+
+    Args:
+        url: URL to check
+
+    Returns:
+        bool: True if URL exists (200 status), False otherwise
+    """
     try:
         req = urllib.request.Request(url, method="HEAD")
         with urllib.request.urlopen(req) as response:
@@ -44,17 +64,26 @@ def check_url_exists(url):
         return False
 
 
-def download_file(url, filepath):
-    """Downloads a file from a URL to the specified filepath using urllib."""
+def download_file(url, filepath) -> bool:
+    """Downloads a file from a URL to the specified filepath using urllib.
+
+    Args:
+        url: URL to download from
+        filepath: Destination file path (str or Path)
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
     try:
-        ensure_directory(str(Path(filepath).parent))
+        filepath_obj = Path(filepath)
+        ensure_directory(filepath_obj.parent)
 
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req) as response:
-            with open(filepath, "wb") as f:
+            with open(filepath_obj, "wb") as f:
                 shutil.copyfileobj(response, f)
 
-        logger.info(f"Downloaded: {filepath}")
+        logger.info(f"Downloaded: {filepath_obj}")
         return True
     except Exception as e:
         logger.error(f"Failed to download {url}: {e}")
@@ -65,15 +94,27 @@ def download_file(url, filepath):
 
 
 def save_metadata(metadata, filepath):
-    """Saves metadata dictionary to a text file in the metadata subfolder."""
+    """Saves metadata dictionary to a text file in the metadata subfolder.
+
+    Args:
+        metadata: Dictionary containing image metadata
+        filepath: Path to the image file (str or Path)
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
     try:
         # Save to metadata subfolder instead of next to image
         filepath_obj = Path(filepath)
         metadata_dir = filepath_obj.parent / "metadata"
-        ensure_directory(str(metadata_dir))
-        
-        metadata_filepath = metadata_dir / f"{filepath_obj.stem}.txt"
-        
+        ensure_directory(metadata_dir)
+
+        # Sanitize filename to prevent path traversal
+        safe_stem = (
+            filepath_obj.stem.replace("..", "").replace("/", "_").replace("\\", "_")
+        )
+        metadata_filepath = metadata_dir / f"{safe_stem}.txt"
+
         with open(metadata_filepath, "w") as f:
             source = metadata.get("source", "Unknown Source").upper()
             f.write(f"{source} METADATA\n")
