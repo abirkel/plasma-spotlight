@@ -251,7 +251,13 @@ EOMETA
 
 echo "Theme metadata created"
 
-# 6. Create SDDM config to use our theme
+# 6. Remount overlay to ensure new files are visible
+if systemctl is-active --quiet usr-share-sddm-themes.mount; then
+    systemctl restart usr-share-sddm-themes.mount
+    echo "Remounted SDDM themes overlay"
+fi
+
+# 7. Create SDDM config to use our theme
 mkdir -p /etc/sddm.conf.d
 cat > "\$SDDM_CONF" <<EOCONF
 # Plasma Spotlight SDDM Configuration
@@ -262,7 +268,7 @@ EOCONF
 
 echo "SDDM configuration created"
 
-# 7. Fix SELinux context on cache directory
+# 8. Fix SELinux context on cache directory
 if command -v restorecon &>/dev/null; then
     restorecon -R "\$USER_BG_CACHE" 2>/dev/null || true
     echo "Fixed SELinux context"

@@ -105,7 +105,7 @@ PLASMA_SPOTLIGHT_LOG_LEVEL=ERROR plasma-spotlight
 3. **Integrates**: Updates KDE lock screen config and SDDM theme points to cached image
 4. **Metadata**: Saves image details in `metadata/` subfolders
 
-The SDDM theme lives in `/var/sddm_themes/themes/plasma-spotlight/` (one-time sudo setup during install), but daily updates only touch the user-writable cache—perfect for immutable systems like Bazzite.
+The SDDM theme lives in `/usr/share/sddm/themes/plasma-spotlight/` (one-time sudo setup during install), but daily updates only touch the user-writable cache—perfect for immutable systems like Bazzite.
 
 ## Uninstall
 
