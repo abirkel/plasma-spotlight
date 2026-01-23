@@ -84,11 +84,11 @@ PLASMA_SPOTLIGHT_LOG_LEVEL=ERROR plasma-spotlight
 ## How It Works
 
 1. **Downloads**: Fetches images from Spotlight/Bing APIs to `~/Pictures/Wallpapers/`
-2. **Symlinks**: Updates `~/.local/share/plasma-spotlight/current.jpg` (no sudo needed)
-3. **Integrates**: Updates KDE lock screen config and SDDM theme points to symlink
+2. **Caches**: Copies selected wallpaper to `/var/cache/plasma-spotlight/current.jpg` (user-writable, system-readable)
+3. **Integrates**: Updates KDE lock screen config and SDDM theme points to cached image
 4. **Metadata**: Saves image details in `metadata/` subfolders
 
-The SDDM theme lives in `/var/lib/sddm` (one-time sudo setup during install), but daily updates only touch the user-writable symlink—perfect for Atomic systems.
+The SDDM theme lives in `/var/sddm_themes/themes/plasma-spotlight/` (one-time sudo setup during install), but daily updates only touch the user-writable cache—perfect for immutable systems like Bazzite.
 
 ## Uninstall
 

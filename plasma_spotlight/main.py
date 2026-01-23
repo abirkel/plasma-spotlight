@@ -8,7 +8,7 @@ from .spotlight import SpotlightDownloader
 from .kde import (
     update_lockscreen,
     update_user_background,
-    USER_BG_SYMLINK,
+    USER_BG_PATH,
 )
 from .systemd import enable_timer, disable_timer
 
@@ -135,7 +135,7 @@ def main() -> int:
             return 1
 
         logger.info("Updating lock screen configuration...")
-        if not update_lockscreen(str(USER_BG_SYMLINK)):
+        if not update_lockscreen(str(USER_BG_PATH)):
             logger.error("Failed to update lock screen")
             return 1
 

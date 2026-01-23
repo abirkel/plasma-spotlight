@@ -1,12 +1,13 @@
 import logging
+import shutil
 import subprocess
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# User-writable background location (no sudo needed for daily updates)
-USER_BG_DIR = Path.home() / ".local/share/plasma-spotlight"
-USER_BG_SYMLINK = USER_BG_DIR / "current.jpg"
+# System-readable, user-writable cache location (no sudo needed for daily updates)
+USER_BG_DIR = Path("/var/cache/plasma-spotlight")
+USER_BG_PATH = USER_BG_DIR / "current.jpg"
 
 
 def run_command(cmd):
@@ -67,10 +68,10 @@ def update_lockscreen(image_path: str) -> bool:
 
 
 def update_user_background(image_path: str) -> bool:
-    """Updates the symlink at ~/.local/share/plasma-spotlight/current.jpg
+    """Copies wallpaper to /var/cache/plasma-spotlight/current.jpg
 
     This is user-level, no sudo needed for daily updates.
-    SELinux context is set once during installation, not at runtime.
+    Uses copy instead of symlink for robustness.
 
     Args:
         image_path: Absolute path to the wallpaper image (str or Path)
@@ -85,19 +86,22 @@ def update_user_background(image_path: str) -> bool:
         return False
 
     try:
-        # Ensure directory exists
-        USER_BG_DIR.mkdir(parents=True, exist_ok=True)
+        # Ensure directory exists (should already exist from install)
+        if not USER_BG_DIR.exists():
+            logger.error(f"Cache directory not found: {USER_BG_DIR}")
+            logger.error("Please run the installer to set up the cache directory")
+            return False
 
-        # Remove old symlink if exists (handles both valid and broken symlinks)
-        if USER_BG_SYMLINK.exists() or USER_BG_SYMLINK.is_symlink():
-            USER_BG_SYMLINK.unlink()
+        # Copy image to cache location
+        shutil.copy2(image_path_obj, USER_BG_PATH)
 
-        # Create new symlink
-        USER_BG_SYMLINK.symlink_to(image_path_obj.absolute())
-        logger.info(f"Updated user background symlink to: {image_path}")
+        # Ensure file is world-readable for SDDM
+        USER_BG_PATH.chmod(0o644)
+
+        logger.info(f"Updated background cache to: {image_path}")
 
         return True
 
     except Exception as e:
-        logger.error(f"Failed to update user background symlink: {e}")
+        logger.error(f"Failed to update background cache: {e}")
         return False
