@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+from pathlib import Path
 from typing import Optional, List
 from .config import load_config
 from .bing import BingDownloader
@@ -60,6 +61,12 @@ def main() -> int:
         action="store_true",
         help="Show last update time and exit",
     )
+    parser.add_argument(
+        "--set-wallpaper",
+        type=str,
+        metavar="PATH",
+        help="Manually set a specific image as lockscreen/SDDM wallpaper",
+    )
 
     # Systemd timer control
     parser.add_argument(
@@ -87,6 +94,10 @@ def main() -> int:
     if args.disable_timer:
         logger.info("Disabling systemd timer...")
         return 0 if disable_timer() else 1
+
+    # Handle manual wallpaper setting
+    if args.set_wallpaper:
+        return _handle_set_wallpaper(args.set_wallpaper)
 
     # Check if we should run (unless --refresh or --download-only)
     if not args.refresh and not args.download_only:
@@ -173,6 +184,54 @@ def main() -> int:
     else:
         logger.info("No new images downloaded. Wallpaper unchanged.")
 
+    return 0
+
+
+def _handle_set_wallpaper(wallpaper_path: str) -> int:
+    """Handle manual wallpaper setting via --set-wallpaper.
+
+    Args:
+        wallpaper_path: Path to the image file (string)
+
+    Returns:
+        int: Exit code (0 for success, 1 for failure)
+    """
+    # Resolve to absolute path
+    wallpaper_path_obj = Path(wallpaper_path).resolve()
+
+    # Validate file exists
+    if not wallpaper_path_obj.exists():
+        logger.error(f"Image not found: {wallpaper_path_obj}")
+        return 1
+
+    if not wallpaper_path_obj.is_file():
+        logger.error(f"Path is not a file: {wallpaper_path_obj}")
+        return 1
+
+    # Optional: Validate image format
+    valid_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+    if wallpaper_path_obj.suffix.lower() not in valid_extensions:
+        logger.warning(
+            f"File extension '{wallpaper_path_obj.suffix}' may not be a valid image format"
+        )
+        logger.warning("Supported formats: JPG, PNG, BMP, WebP")
+
+    # Update the cache and lockscreen
+    logger.info(f"Setting wallpaper to: {wallpaper_path_obj}")
+
+    if not update_user_background(str(wallpaper_path_obj)):
+        logger.error("Failed to update user background cache")
+        return 1
+
+    logger.info("Updating lock screen configuration...")
+    if not update_lockscreen(str(USER_BG_PATH)):
+        logger.error("Failed to update lock screen")
+        return 1
+
+    logger.info("Wallpaper updated successfully (lock screen + SDDM)")
+    logger.info("Note: Systemd timer will override this on next scheduled run")
+
+    # Intentionally NOT calling mark_run_complete() so timer still runs on schedule
     return 0
 
 

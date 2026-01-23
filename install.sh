@@ -73,6 +73,12 @@ install_plasma_spotlight() {
 		# This is safer and more explicit than trying to exclude everything we don't want
 		cp plasma_spotlight/*.py "$INSTALL_DIR/plasma_spotlight/"
 		cp pyproject.toml LICENSE README.md install.sh uninstall.sh "$INSTALL_DIR/"
+		
+		# Copy thumbnail if it exists
+		if [ -f "thumbnail.jpg" ]; then
+			cp thumbnail.jpg "$INSTALL_DIR/"
+			echo "Copied thumbnail.jpg"
+		fi
 
 		echo "Copied application files to $INSTALL_DIR"
 	else
@@ -218,7 +224,13 @@ EOTHEME
 
 echo "Theme configuration created"
 
-# 5b. Update metadata.desktop to give theme a unique name
+# 5b. Copy thumbnail to theme directory
+if [ -f "$INSTALL_DIR/thumbnail.jpg" ]; then
+    cp "$INSTALL_DIR/thumbnail.jpg" "\$SDDM_THEME_DIR/thumbnail.jpg"
+    echo "Copied theme thumbnail"
+fi
+
+# 5c. Update metadata.desktop to give theme a unique name
 # Write through the overlay mount point so KDE sees it
 cat > "/usr/share/sddm/themes/plasma-spotlight/metadata.desktop" <<EOMETA
 [SddmGreeterTheme]
@@ -230,7 +242,7 @@ License=MIT
 Type=sddm-theme
 Version=0.1
 Website=https://github.com/abirkel/plasma-spotlight
-Screenshot=preview.png
+Screenshot=thumbnail.jpg
 MainScript=Main.qml
 ConfigFile=theme.conf
 Theme-Id=plasma-spotlight

@@ -1,3 +1,5 @@
+<img src="thumbnail.jpg" alt="Plasma Spotlight" width="480">
+
 # Plasma Spotlight
 
 > Daily wallpaper automation for KDE Plasma on Fedora
@@ -37,6 +39,9 @@ That's it. The installer sets up everything—SDDM theme, systemd timer, and run
 # Run manually (downloads + updates wallpapers)
 plasma-spotlight
 
+# Set a specific image as wallpaper
+plasma-spotlight --set-wallpaper /path/to/image.jpg
+
 # Force refresh (ignores daily limit)
 plasma-spotlight --refresh
 
@@ -57,7 +62,7 @@ plasma-spotlight --enable-timer   # Resume daily updates
 - Runs on wake from suspend/hibernate
 - Limited to once per day (use `--refresh` to override)
 
-Check status: `systemctl --user status plasma-spotlight.timer`
+View timer status: `systemctl --user status plasma-spotlight.timer`
 
 ## Configuration
 
