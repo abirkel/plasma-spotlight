@@ -219,7 +219,8 @@ EOTHEME
 echo "Theme configuration created"
 
 # 5b. Update metadata.desktop to give theme a unique name
-cat > "\$SDDM_THEME_DIR/metadata.desktop" <<EOMETA
+# Write through the overlay mount point so KDE sees it
+cat > "/usr/share/sddm/themes/plasma-spotlight/metadata.desktop" <<EOMETA
 [SddmGreeterTheme]
 Name=Plasma Spotlight
 Description=Daily wallpaper from Windows Spotlight and Bing
