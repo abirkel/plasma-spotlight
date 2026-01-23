@@ -231,8 +231,7 @@ if [ -f "$INSTALL_DIR/thumbnail.jpg" ]; then
 fi
 
 # 5c. Update metadata.desktop to give theme a unique name
-# Write through the overlay mount point so KDE sees it
-cat > "/usr/share/sddm/themes/plasma-spotlight/metadata.desktop" <<EOMETA
+cat > "\$SDDM_THEME_DIR/metadata.desktop" <<EOMETA
 [SddmGreeterTheme]
 Name=Plasma Spotlight
 Description=Daily wallpaper from Windows Spotlight and Bing
