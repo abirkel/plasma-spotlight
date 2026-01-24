@@ -58,8 +58,7 @@ plasma-spotlight --enable-timer   # Resume daily updates
 
 **Automatic Updates:**
 - Runs daily at 12:05 AM
-- Runs on system boot
-- Runs on wake from suspend/hibernate
+- Catches up on wake if system was asleep at midnight (via `Persistent=true`)
 - Limited to once per day (use `--refresh` to override)
 
 View timer status: `systemctl --user status plasma-spotlight.timer`

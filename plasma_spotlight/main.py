@@ -1,6 +1,8 @@
 import argparse
 import logging
 import os
+import socket
+import time
 from pathlib import Path
 from typing import Optional, List
 from .config import load_config
@@ -30,6 +32,37 @@ def setup_logging():
 
 
 logger = logging.getLogger(__name__)
+
+
+def wait_for_network_ready(max_wait: float = 5.0, check_interval: float = 0.3) -> bool:
+    """Wait for network to be ready with quick retry checks.
+
+    Performs DNS lookups at regular intervals to detect when network is available.
+    Useful after system wake from suspend when network may not be immediately ready.
+
+    Args:
+        max_wait: Maximum seconds to wait before giving up (default 5.0)
+        check_interval: Seconds between network checks (default 0.3)
+
+    Returns:
+        bool: True if network is ready, False if timeout reached
+    """
+    attempts = int(max_wait / check_interval)
+
+    for i in range(attempts):
+        try:
+            # Quick DNS lookup test to verify network connectivity
+            socket.getaddrinfo("www.bing.com", 80, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            if i > 0:  # Only log if we had to wait
+                logger.info(f"Network ready after {i * check_interval:.1f}s")
+            return True
+        except socket.gaierror:
+            if i == 0:
+                logger.debug("Network not immediately ready, waiting...")
+            time.sleep(check_interval)
+
+    logger.warning(f"Network not ready after {max_wait}s, proceeding anyway")
+    return False
 
 
 def main() -> int:
@@ -105,7 +138,14 @@ def main() -> int:
             logger.info(
                 "Wallpaper already updated today. Use --refresh to force update."
             )
+            logger.info("Exiting: Daily limit reached")
             return 0
+
+    if args.refresh:
+        logger.info("Running with --refresh flag (ignoring daily limit)")
+
+    # Wait for network to be ready (important after wake from suspend)
+    wait_for_network_ready()
 
     # Downloaders
     download_sources = config.get("download_sources", "both")
@@ -177,12 +217,14 @@ def main() -> int:
             return 1
 
         logger.info("Wallpapers updated successfully (lock screen + SDDM)")
+        logger.info(f"Active wallpaper: {Path(latest_image_path).name}")
 
         # Mark run as complete
         if not mark_run_complete():
             logger.warning("Failed to update status file, but wallpaper was updated")
     else:
         logger.info("No new images downloaded. Wallpaper unchanged.")
+        logger.info("Exiting: No updates available")
 
     return 0
 

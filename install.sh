@@ -73,7 +73,7 @@ install_plasma_spotlight() {
 		# This is safer and more explicit than trying to exclude everything we don't want
 		cp plasma_spotlight/*.py "$INSTALL_DIR/plasma_spotlight/"
 		cp pyproject.toml LICENSE README.md install.sh uninstall.sh "$INSTALL_DIR/"
-		
+
 		# Copy thumbnail if it exists
 		if [ -f "thumbnail.jpg" ]; then
 			cp thumbnail.jpg "$INSTALL_DIR/"
@@ -127,7 +127,7 @@ EOF
 	cat >"$SYSTEMD_USER_DIR/plasma-spotlight.service" <<EOSERVICE
 [Unit]
 Description=Daily Wallpaper Downloader (Spotlight/Bing)
-After=network-online.target suspend.target hibernate.target
+After=network-online.target
 Wants=network-online.target
 
 [Service]
@@ -137,7 +137,7 @@ StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=default.target suspend.target hibernate.target
+WantedBy=default.target
 EOSERVICE
 
 	# Write timer file
@@ -285,9 +285,12 @@ EOSUDO
 	echo ""
 	echo "✓ Installation complete!"
 	echo "✓ The systemd timer is enabled and will run daily at midnight"
+	echo "✓ Timer will catch up on wake if system was asleep at midnight"
 	echo "✓ SDDM theme will be active on the next login screen"
-	echo "✓ You can disable the timer with: $SCRIPT_NAME --disable-timer"
-	echo "✓ You can enable it again with: $SCRIPT_NAME --enable-timer"
+	echo ""
+	echo "Timer control:"
+	echo "  $SCRIPT_NAME --disable-timer  # Pause automatic updates"
+	echo "  $SCRIPT_NAME --enable-timer   # Resume automatic updates"
 	echo ""
 
 	# Check if ~/.local/bin is in PATH (show message only if not already shown)
