@@ -34,15 +34,15 @@ def setup_logging():
 logger = logging.getLogger(__name__)
 
 
-def wait_for_network_ready(max_wait: float = 5.0, check_interval: float = 0.3) -> bool:
+def wait_for_network_ready(max_wait: float = 10.0, check_interval: float = 0.5) -> bool:
     """Wait for network to be ready with quick retry checks.
 
     Performs DNS lookups at regular intervals to detect when network is available.
     Useful after system wake from suspend when network may not be immediately ready.
 
     Args:
-        max_wait: Maximum seconds to wait before giving up (default 5.0)
-        check_interval: Seconds between network checks (default 0.3)
+        max_wait: Maximum seconds to wait before giving up (default 10.0)
+        check_interval: Seconds between network checks (default 0.5)
 
     Returns:
         bool: True if network is ready, False if timeout reached
