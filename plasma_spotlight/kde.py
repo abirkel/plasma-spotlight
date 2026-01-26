@@ -87,12 +87,15 @@ def should_run_update() -> bool:
         if last_run.tzinfo is None:
             last_run = last_run.replace(tzinfo=timezone.utc)
 
-        today = datetime.now(timezone.utc).date()
-        last_run_date = last_run.date()
+        # Use local timezone for date comparison (timer runs at midnight local time)
+        now_local = datetime.now().astimezone()
+        today = now_local.date()
+
+        # Convert last_run to local timezone for comparison
+        last_run_local = last_run.astimezone()
+        last_run_date = last_run_local.date()
 
         if last_run_date == today:
-            # Convert to local time for display
-            last_run_local = last_run.astimezone()
             logger.info(
                 f"Already updated today at {last_run_local.strftime('%H:%M:%S')}"
             )
