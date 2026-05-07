@@ -33,8 +33,12 @@ class SpotlightDownloader:
         self.api_url = SPOTLIGHT_API_URL
         self.user_agent = SPOTLIGHT_USER_AGENT
 
-    def run(self) -> Optional[List[str]]:
+    def run(self, force: bool = False) -> Optional[List[str]]:
         """Download Windows Spotlight wallpapers.
+
+        Args:
+            force: If True, re-download images even if they already exist on disk.
+                   Used by --refresh to guarantee a fresh image is applied.
 
         Returns:
             List of downloaded image paths as strings (empty if no new images),
@@ -106,8 +110,11 @@ class SpotlightDownloader:
                     full_path = self.save_path / filename
 
                     if full_path.exists():
-                        logger.info(f"Already exists: {filename}")
-                        continue
+                        if force:
+                            logger.info(f"Force re-downloading: {filename}")
+                        else:
+                            logger.info(f"Already exists: {filename}")
+                            continue
 
                     # Metadata
                     title = ad.get("title", "No Title")

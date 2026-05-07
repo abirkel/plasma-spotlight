@@ -33,7 +33,8 @@ def run_command(cmd):
 
 
 def update_lockscreen(image_path: str) -> bool:
-    """Updates the KDE Lock Screen wallpaper using kwriteconfig6.
+    """Updates the KDE Lock Screen wallpaper using kwriteconfig6, then signals
+    the running screen locker to reload its configuration.
 
     Args:
         image_path: Absolute path to the wallpaper image
@@ -67,7 +68,25 @@ def update_lockscreen(image_path: str) -> bool:
         file_uri,
     ]
 
-    return run_command(cmd)
+    if not run_command(cmd):
+        return False
+
+    # Signal the running screen locker to reload config so the change takes
+    # effect immediately without requiring a logout/reboot.
+    reload_cmd = [
+        "qdbus6",
+        "org.kde.KScreenLocker",
+        "/ScreenLocker",
+        "org.kde.KScreenLocker.configure",
+    ]
+    if not run_command(reload_cmd):
+        # Non-fatal: config is written correctly, will take effect on next lock
+        logger.warning(
+            "Could not signal screen locker to reload — "
+            "new wallpaper will appear on next lock screen activation"
+        )
+
+    return True
 
 
 def should_run_update() -> bool:

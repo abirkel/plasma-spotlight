@@ -19,8 +19,12 @@ class BingDownloader:
         self.base_url = BING_BASE_URL
         self.archive_url = BING_ARCHIVE_URL
 
-    def run(self) -> Optional[List[str]]:
+    def run(self, force: bool = False) -> Optional[List[str]]:
         """Download Bing daily wallpapers.
+
+        Args:
+            force: If True, re-download images even if they already exist on disk.
+                   Used by --refresh to guarantee a fresh image is applied.
 
         Returns:
             List of downloaded image paths as strings (empty if no new images),
@@ -68,8 +72,11 @@ class BingDownloader:
                     full_path = self.save_path / filename
 
                     if full_path.exists():
-                        logger.info(f"Already exists: {filename}")
-                        continue
+                        if force:
+                            logger.info(f"Force re-downloading: {filename}")
+                        else:
+                            logger.info(f"Already exists: {filename}")
+                            continue
 
                     # Check if the desired resolution exists before attempting download
                     if not check_url_exists(image_url):
