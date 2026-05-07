@@ -25,6 +25,9 @@ def run_command(cmd):
     try:
         subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return True
+    except FileNotFoundError:
+        logger.debug(f"Command not found: {cmd[0]}")
+        return False
     except subprocess.CalledProcessError as e:
         logger.error(
             f"Command failed: {' '.join(cmd)}\nError: {e.stderr.decode().strip()}"
