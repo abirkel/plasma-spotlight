@@ -164,7 +164,7 @@ def main() -> int:
 
     # Download from configured sources
     if download_sources in ["bing", "both"]:
-        result = bing.run(force=args.refresh)
+        result = bing.run()
         if result is None:
             bing_failed = True
             logger.error("Bing download encountered a critical error")
@@ -176,7 +176,7 @@ def main() -> int:
         logger.info("Skipping Bing (source not selected)")
 
     if download_sources in ["spotlight", "both"]:
-        result = spotlight.run(force=args.refresh)
+        result = spotlight.run()
         if result is None:
             spotlight_failed = True
             logger.error("Spotlight download encountered a critical error")
