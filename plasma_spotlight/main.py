@@ -10,6 +10,7 @@ from .bing import BingDownloader
 from .spotlight import SpotlightDownloader
 from .kde import (
     update_lockscreen,
+    update_plasmalogin_config,
     update_user_background,
     should_run_update,
     mark_run_complete,
@@ -69,7 +70,7 @@ def main() -> int:
     """Main entry point for plasma-spotlight application.
 
     Handles command-line arguments and orchestrates wallpaper downloads
-    and system updates for KDE Plasma lock screen and SDDM.
+    and system updates for KDE Plasma lock screen and Plasma Login Manager.
 
     Returns:
         int: Exit code (0 for success, 1 for failure)
@@ -98,7 +99,7 @@ def main() -> int:
         "--set-wallpaper",
         type=str,
         metavar="PATH",
-        help="Manually set a specific image as lockscreen/SDDM wallpaper",
+        help="Manually set a specific image as lockscreen/login manager wallpaper",
     )
 
     # Systemd timer control
@@ -216,7 +217,7 @@ def main() -> int:
             logger.error("Failed to update lock screen")
             return 1
 
-        logger.info("Wallpapers updated successfully (lock screen + SDDM)")
+        logger.info("Wallpapers updated successfully (lock screen + login manager)")
         logger.info(f"Active wallpaper: {Path(latest_image_path).name}")
 
         # Mark run as complete
@@ -270,7 +271,15 @@ def _handle_set_wallpaper(wallpaper_path: str) -> int:
         logger.error("Failed to update lock screen")
         return 1
 
-    logger.info("Wallpaper updated successfully (lock screen + SDDM)")
+    # Update PLM config — requires root; warn but don't fail if permissions are missing
+    # (cache file update is the critical part; PLM config is written once at install)
+    if not update_plasmalogin_config():
+        logger.warning(
+            "Could not update Plasma Login Manager config — "
+            "login screen wallpaper may not reflect this change until reinstall"
+        )
+
+    logger.info("Wallpaper updated successfully (lock screen + login manager)")
     logger.info("Note: Systemd timer will override this on next scheduled run")
 
     # Intentionally NOT calling mark_run_complete() so timer still runs on schedule

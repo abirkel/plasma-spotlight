@@ -1,3 +1,4 @@
+import configparser
 import logging
 import shutil
 import subprocess
@@ -150,6 +151,54 @@ def get_last_run_time() -> str:
         return f"Error reading status: {e}"
 
 
+PLM_CONFIG_PATH = Path("/etc/plasmalogin.conf")
+# Nested group key as PLM expects it in the INI file
+PLM_CONFIG_SECTION = "Greeter][Wallpaper][org.kde.image][General"
+PLM_CONFIG_KEY = "Image"
+
+
+def update_plasmalogin_config() -> bool:
+    """Write or update /etc/plasmalogin.conf to point Plasma Login Manager
+    at the wallpaper cache file.
+
+    Uses the cache path USER_BG_PATH which is updated daily without sudo.
+    This function itself requires root (writes to /etc/) and is called once
+    at install time via the install script, and optionally from --set-wallpaper.
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    file_uri = USER_BG_PATH.as_uri()
+
+    try:
+        config = configparser.RawConfigParser()
+        config.optionxform = str  # Preserve key case
+
+        if PLM_CONFIG_PATH.exists():
+            config.read(PLM_CONFIG_PATH, encoding="utf-8")
+
+        if PLM_CONFIG_SECTION not in config:
+            config[PLM_CONFIG_SECTION] = {}
+
+        config[PLM_CONFIG_SECTION][PLM_CONFIG_KEY] = file_uri
+
+        with open(PLM_CONFIG_PATH, "w", encoding="utf-8") as f:
+            config.write(f)
+
+        logger.info(f"Updated Plasma Login Manager config: {PLM_CONFIG_PATH}")
+        return True
+
+    except PermissionError:
+        logger.error(
+            f"Permission denied writing {PLM_CONFIG_PATH}. "
+            "This step requires root — re-run the installer or use sudo."
+        )
+        return False
+    except OSError as e:
+        logger.error(f"Failed to write Plasma Login Manager config: {e}")
+        return False
+
+
 def update_user_background(image_path: str) -> bool:
     """Copies wallpaper to /var/cache/plasma-spotlight/current.jpg
 
@@ -178,7 +227,7 @@ def update_user_background(image_path: str) -> bool:
         # Copy image to cache location
         shutil.copy2(image_path_obj, USER_BG_PATH)
 
-        # Ensure file is world-readable for SDDM
+        # Ensure file is world-readable for Plasma Login Manager
         USER_BG_PATH.chmod(0o644)
 
         logger.info(f"Updated background cache to: {image_path}")

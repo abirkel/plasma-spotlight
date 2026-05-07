@@ -25,7 +25,7 @@ install_plasma_spotlight() {
 		exit 1
 	fi
 
-	# Check for KDE Plasma 6 (kwriteconfig6 is required)
+	# Check for KDE Plasma 6 (kwriteconfig6 is required for lock screen)
 	if ! command -v kwriteconfig6 &>/dev/null; then
 		echo "Warning: kwriteconfig6 not found. KDE Plasma 6 may not be installed."
 		echo "This tool requires KDE Plasma 6 for lock screen integration."
@@ -41,6 +41,17 @@ install_plasma_spotlight() {
 		else
 			echo "Non-interactive mode: Continuing without kwriteconfig6"
 		fi
+	fi
+
+	# Check for Plasma Login Manager
+	if ! systemctl list-unit-files plasmalogin.service &>/dev/null || \
+	   ! systemctl list-unit-files plasmalogin.service | grep -q plasmalogin; then
+		echo ""
+		echo "⚠ Warning: Plasma Login Manager (plasmalogin.service) was not detected."
+		echo "  This tool requires plasma-login-manager (included in KDE Plasma 6.6+)."
+		echo "  Install it with: sudo dnf install plasma-login-manager"
+		echo "  The login screen wallpaper will not update until PLM is installed."
+		echo ""
 	fi
 
 	# Ensure directories exist
@@ -69,7 +80,7 @@ install_plasma_spotlight() {
 		echo "Detected local repository. Copying files..."
 		mkdir -p "$INSTALL_DIR/plasma_spotlight"
 
-		# Whitelist approach: Copy only what we need
+		# Allowlist approach: Copy only what we need
 		# This is safer and more explicit than trying to exclude everything we don't want
 		cp plasma_spotlight/*.py "$INSTALL_DIR/plasma_spotlight/"
 		cp pyproject.toml LICENSE README.md install.sh uninstall.sh "$INSTALL_DIR/"
@@ -169,7 +180,7 @@ EOTIMER
 	# ============================================
 
 	echo ""
-	echo "Installing system components (requires sudo for SDDM theme)..."
+	echo "Installing system components (requires sudo)..."
 
 	# Run system installation as root
 	if sudo bash <<EOSUDO; then
@@ -184,97 +195,82 @@ else
     USER_HOME=\$(eval echo ~\$ACTUAL_USER)
 fi
 
-SDDM_THEME_DIR="/var/sddm_themes/themes/plasma-spotlight"
-SDDM_CONF="/etc/sddm.conf.d/plasma-spotlight.conf"
 USER_BG_CACHE="/var/cache/plasma-spotlight"
 USER_BG_PATH="\$USER_BG_CACHE/current.jpg"
+PLM_CONF="/etc/plasmalogin.conf"
 
-echo "Setting up SDDM theme..."
-
-# 1. Create theme directory
-mkdir -p "\$SDDM_THEME_DIR"
-
-# 2. Copy breeze theme as base
-if [ -d "/usr/share/sddm/themes/breeze" ]; then
-    echo "Copying breeze theme as base..."
-    cp -r /usr/share/sddm/themes/breeze/* "\$SDDM_THEME_DIR/"
-else
-    echo "Warning: Breeze theme not found"
-fi
-
-# 3. Create user-writable cache directory for background
+# 1. Create user-writable cache directory for background
 mkdir -p "\$USER_BG_CACHE"
 chown "\$ACTUAL_USER:\$ACTUAL_USER" "\$USER_BG_CACHE"
 chmod 755 "\$USER_BG_CACHE"
+echo "Created background cache: \$USER_BG_CACHE"
 
-# 4. Initialize current.jpg from breeze background if it doesn't exist
-if [ -f "/usr/share/sddm/themes/breeze/components/artwork/background.png" ] && [ ! -f "\$USER_BG_PATH" ]; then
-    cp /usr/share/sddm/themes/breeze/components/artwork/background.png "\$USER_BG_PATH"
-    chown "\$ACTUAL_USER:\$ACTUAL_USER" "\$USER_BG_PATH"
-    chmod 644 "\$USER_BG_PATH"
-    echo "Initialized current.jpg from breeze background"
+# 2. Initialize current.jpg from a system wallpaper if it doesn't exist
+if [ ! -f "\$USER_BG_PATH" ]; then
+    INIT_BG=""
+    # Try common system wallpaper locations in order of preference
+    for candidate in \
+        /usr/share/wallpapers/Next/contents/images/3840x2160.png \
+        /usr/share/wallpapers/Next/contents/images/1920x1080.png \
+        /usr/share/backgrounds/default.png \
+        /usr/share/backgrounds/default.jpg \
+        \$(find /usr/share/wallpapers /usr/share/backgrounds -maxdepth 4 \
+            \( -name "*.jpg" -o -name "*.png" \) 2>/dev/null | head -1); do
+        if [ -f "\$candidate" ]; then
+            INIT_BG="\$candidate"
+            break
+        fi
+    done
+
+    if [ -n "\$INIT_BG" ]; then
+        cp "\$INIT_BG" "\$USER_BG_PATH"
+        chown "\$ACTUAL_USER:\$ACTUAL_USER" "\$USER_BG_PATH"
+        chmod 644 "\$USER_BG_PATH"
+        echo "Initialized current.jpg from: \$INIT_BG"
+    else
+        echo "Warning: No system wallpaper found to initialize current.jpg"
+        echo "The login screen will use its default background until the first run."
+    fi
 fi
 
-# 5. Create theme.conf pointing to cached background
-cat > "\$SDDM_THEME_DIR/theme.conf" <<EOTHEME
-# Plasma Spotlight SDDM Theme Configuration
-[General]
-background=\$USER_BG_PATH
-EOTHEME
+# 3. Write Plasma Login Manager config
+echo "Configuring Plasma Login Manager..."
+PLM_IMAGE_URI="file://\$USER_BG_PATH"
 
-echo "Theme configuration created"
+# Write the wallpaper config block using Python for reliable INI handling
+python3 - <<EOPY
+import configparser, sys
 
-# 5b. Copy thumbnail to theme directory
-if [ -f "$INSTALL_DIR/thumbnail.jpg" ]; then
-    cp "$INSTALL_DIR/thumbnail.jpg" "\$SDDM_THEME_DIR/thumbnail.jpg"
-    echo "Copied theme thumbnail"
-fi
+conf_path = "\$PLM_CONF"
+section = "Greeter][Wallpaper][org.kde.image][General"
+key = "Image"
+value = "\$PLM_IMAGE_URI"
 
-# 5c. Update metadata.desktop to give theme a unique name
-cat > "\$SDDM_THEME_DIR/metadata.desktop" <<EOMETA
-[SddmGreeterTheme]
-Name=Plasma Spotlight
-Description=Daily wallpaper from Windows Spotlight and Bing
-Author=Plasma Spotlight
-Copyright=(c) 2024
-License=MIT
-Type=sddm-theme
-Version=0.1
-Website=https://github.com/abirkel/plasma-spotlight
-Screenshot=thumbnail.jpg
-MainScript=Main.qml
-ConfigFile=theme.conf
-Theme-Id=plasma-spotlight
-Theme-API=2.0
-QtVersion=6
-EOMETA
+config = configparser.RawConfigParser()
+config.optionxform = str  # Preserve key case
 
-echo "Theme metadata created"
+try:
+    config.read(conf_path, encoding="utf-8")
+except Exception:
+    pass  # Start fresh if unreadable
 
-# 6. Remount overlay to ensure new files are visible
-if systemctl is-active --quiet usr-share-sddm-themes.mount; then
-    systemctl restart usr-share-sddm-themes.mount
-    echo "Remounted SDDM themes overlay"
-fi
+if section not in config:
+    config[section] = {}
+config[section][key] = value
 
-# 7. Create SDDM config to use our theme
-mkdir -p /etc/sddm.conf.d
-cat > "\$SDDM_CONF" <<EOCONF
-# Plasma Spotlight SDDM Configuration
-[Theme]
-ThemeDir=/var/sddm_themes/themes
-Current=plasma-spotlight
-EOCONF
+with open(conf_path, "w", encoding="utf-8") as f:
+    config.write(f)
 
-echo "SDDM configuration created"
+print(f"Plasma Login Manager config written: {conf_path}")
+EOPY
 
-# 8. Fix SELinux context on cache directory
+# 4. Fix SELinux context on cache directory
 if command -v restorecon &>/dev/null; then
     restorecon -R "\$USER_BG_CACHE" 2>/dev/null || true
     echo "Fixed SELinux context"
 fi
 
-echo "SDDM theme installed successfully"
+echo "System components installed successfully"
 EOSUDO
 		echo "✓ System components installed successfully"
 	else
@@ -286,7 +282,7 @@ EOSUDO
 	echo "✓ Installation complete!"
 	echo "✓ The systemd timer is enabled and will run daily at midnight"
 	echo "✓ Timer will catch up on wake if system was asleep at midnight"
-	echo "✓ SDDM theme will be active on the next login screen"
+	echo "✓ Plasma Login Manager configured — login screen updates on next run"
 	echo ""
 	echo "Timer control:"
 	echo "  $SCRIPT_NAME --disable-timer  # Pause automatic updates"

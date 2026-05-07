@@ -13,11 +13,27 @@ Get fresh, high-quality wallpapers every day without lifting a finger. Windows S
 ## Features
 
 - **Dual Sources**: Windows Spotlight (Iris API) + Bing daily images from multiple regions
-- **Seamless Integration**: Updates both KDE lock screen and SDDM login background
+- **Seamless Integration**: Updates both KDE lock screen and Plasma Login Manager login background
 - **Atomic-Friendly**: Works perfectly on immutable Fedora variants (Silverblue/Kinoite)
 - **Set & Forget**: Systemd timer handles daily downloads automatically
 - **Rich Metadata**: Saves image details (title, copyright, location) alongside each wallpaper
 - **Zero Dependencies**: Pure Python stdlib—no pip packages required
+
+## Upgrading from a Previous Version
+
+Version 0.2+ requires Plasma Login Manager (KDE Plasma 6.6+) and no longer supports SDDM.
+
+If you have a previous installation, uninstall it first using your **existing** version:
+
+```bash
+~/.local/share/plasma-spotlight/uninstall.sh
+```
+
+Then reinstall fresh:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abirkel/plasma-spotlight/main/install.sh | bash
+```
 
 ## Quick Start
 
@@ -26,12 +42,12 @@ Get fresh, high-quality wallpapers every day without lifting a finger. Windows S
 curl -fsSL https://raw.githubusercontent.com/abirkel/plasma-spotlight/main/install.sh | bash
 ```
 
-That's it. The installer sets up everything—SDDM theme, systemd timer, and runs your first wallpaper update. Fresh wallpapers every day, automatically.
+That's it. The installer sets up everything—Plasma Login Manager config, systemd timer, and runs your first wallpaper update. Fresh wallpapers every day, automatically.
 
 ## Requirements
 
 - Python 3.10+
-- KDE Plasma 6 (uses `kwriteconfig6`)
+- KDE Plasma 6.6+ (uses `kwriteconfig6` and `plasma-login-manager`)
 
 ## Usage
 
@@ -101,10 +117,10 @@ PLASMA_SPOTLIGHT_LOG_LEVEL=ERROR plasma-spotlight
 
 1. **Downloads**: Fetches images from Spotlight/Bing APIs to `~/Pictures/Wallpapers/`
 2. **Caches**: Copies selected wallpaper to `/var/cache/plasma-spotlight/current.jpg` (user-writable, system-readable)
-3. **Integrates**: Updates KDE lock screen config and SDDM theme points to cached image
+3. **Integrates**: Updates KDE lock screen via `kwriteconfig6` and Plasma Login Manager reads the cached image via `/etc/plasmalogin.conf`
 4. **Metadata**: Saves image details in `metadata/` subfolders
 
-The SDDM theme lives in `/usr/share/sddm/themes/plasma-spotlight/` (one-time sudo setup during install), but daily updates only touch the user-writable cache—perfect for immutable systems like Bazzite.
+The Plasma Login Manager config at `/etc/plasmalogin.conf` is written once during install (requires sudo). Daily updates only touch the user-writable cache—no sudo needed after install, and it works perfectly on immutable systems like Bazzite.
 
 ## Uninstall
 

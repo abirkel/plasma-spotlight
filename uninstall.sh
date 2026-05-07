@@ -28,23 +28,16 @@ uninstall_plasma_spotlight() {
 	if sudo bash <<EOSUDO; then
 set -e
 
-SDDM_THEME_DIR="/var/sddm_themes/themes/plasma-spotlight"
-SDDM_CONF="/etc/sddm.conf.d/plasma-spotlight.conf"
 USER_BG_CACHE="/var/cache/plasma-spotlight"
+PLM_CONF="/etc/plasmalogin.conf"
 
-# Remove SDDM theme directory
-if [ -d "\$SDDM_THEME_DIR" ]; then
-    rm -rf "\$SDDM_THEME_DIR"
-    echo "Removed SDDM theme"
+# Remove Plasma Login Manager config
+if [ -f "\$PLM_CONF" ]; then
+    rm -f "\$PLM_CONF"
+    echo "Removed Plasma Login Manager config"
 fi
 
-# Remove SDDM configuration
-if [ -f "\$SDDM_CONF" ]; then
-    rm -f "\$SDDM_CONF"
-    echo "Removed SDDM config"
-fi
-
-# Remove cache directory
+# Remove background cache directory
 if [ -d "\$USER_BG_CACHE" ]; then
     rm -rf "\$USER_BG_CACHE"
     echo "Removed background cache"
@@ -57,8 +50,7 @@ EOSUDO
 		echo ""
 		echo "⚠ Warning: System component removal failed"
 		echo "  You may need to manually remove:"
-		echo "  - /var/sddm_themes/themes/plasma-spotlight/"
-		echo "  - /etc/sddm.conf.d/plasma-spotlight.conf"
+		echo "  - /etc/plasmalogin.conf"
 		echo "  - /var/cache/plasma-spotlight/"
 		echo ""
 		echo "Continuing with user component cleanup..."
@@ -84,17 +76,6 @@ EOSUDO
 	fi
 
 	systemctl --user daemon-reload 2>/dev/null || true
-
-	# 2. Remove user background symlink
-	if [ -L "$HOME/.local/share/plasma-spotlight/current.jpg" ] || [ -f "$HOME/.local/share/plasma-spotlight/current.jpg" ]; then
-		rm -f "$HOME/.local/share/plasma-spotlight/current.jpg"
-		echo "Removed legacy user background symlink"
-	fi
-
-	# Remove legacy directory if empty
-	if [ -d "$HOME/.local/share/plasma-spotlight" ]; then
-		rmdir "$HOME/.local/share/plasma-spotlight" 2>/dev/null || true
-	fi
 
 	echo "User components removed"
 	echo ""
